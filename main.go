@@ -29,25 +29,40 @@ func Handle206Csgo(w http.ResponseWriter, r *http.Request) {
 	}
 	defer res.Body.Close()
 
-	response := make(map[string]string)
+	response := make(map[string]any)
+	players := make([]string, 0, 10)
+
 	scanner := bufio.NewScanner(res.Body)
 	for scanner.Scan() {
-		line := scanner.Text()
-		if !strings.Contains(line, ":") {
+		line := strings.TrimSpace(scanner.Text())
+		if len(line) == 0 {
 			continue
 		}
-		items := strings.SplitN(line, ":", 2)
-		key := strings.TrimSpace(items[0])
-		value := strings.TrimSpace(items[1])
-		switch key {
-		case "map":
-			response["map"] = value
-		case "players":
-			matches := re_players.FindStringSubmatch(value)
-			response["players"] = matches[1]
-			response["bots"] = matches[2]
+		if !strings.HasPrefix(line, "#") {
+			items := strings.SplitN(line, ":", 2)
+			key := strings.TrimSpace(items[0])
+			value := strings.TrimSpace(items[1])
+			switch key {
+			case "map":
+				response["map"] = value
+			case "players":
+				matches := re_players.FindStringSubmatch(value)
+				response["player_count"] = matches[1]
+				response["bot_count"] = matches[2]
+			}
+		} else {
+			parts := strings.SplitN(line, "\"", 3)
+			if len(parts) != 3 {
+				continue
+			}
+			moreInfo := strings.Split(strings.TrimSpace(parts[2]), " ")
+			if moreInfo[0] == "BOT" {
+				continue
+			}
+			players = append(players, parts[1])
 		}
 	}
+	response["players"] = players
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
