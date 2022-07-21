@@ -23,7 +23,7 @@ type CsgoStatus struct {
 	cvar_GameType int
 }
 
-var re_players = *regexp.MustCompile(`(\d+) humans?, (\d+) bots?`)
+var RE_PLAYERS = *regexp.MustCompile(`(\d+) humans?, (\d+) bots?`)
 var GAME_MODE_S = map[int]string{
 	0:   "casual",
 	1:   "competitive",
@@ -74,7 +74,7 @@ func GetCsgoStatus() (CsgoStatus, error) {
 			case "map":
 				status.Map = value
 			case "players":
-				matches := re_players.FindStringSubmatch(value)
+				matches := RE_PLAYERS.FindStringSubmatch(value)
 				status.PlayerCount, _ = strconv.Atoi(matches[1])
 				status.BotCount, _ = strconv.Atoi(matches[2])
 			case "game_mode":

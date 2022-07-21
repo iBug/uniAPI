@@ -21,5 +21,8 @@ func main() {
 	}
 
 	http.HandleFunc("/csgo", Handle206Csgo)
+	http.HandleFunc("/206ip", Handle206IP)
+	http.HandleFunc("/ibug-auth", HandleIBugAuth)
+
 	log.Fatal(http.ListenAndServe(listenAddr, nil))
 }
