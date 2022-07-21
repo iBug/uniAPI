@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type CsgoStatus struct {
@@ -37,6 +38,11 @@ var GAME_MODE_S = map[int]string{
 	500: "skirmish",
 }
 
+var (
+	SavedCsgoStatus CsgoStatus
+	SavedCsgoTime   time.Time
+)
+
 func (s *CsgoStatus) ParseGameMode() string {
 	// Source: https://totalcsgo.com/command/gamemode
 	id := s.cvar_GameType*100 + s.cvar_GameMode
@@ -48,6 +54,11 @@ func (s *CsgoStatus) ParseGameMode() string {
 }
 
 func GetCsgoStatus() (CsgoStatus, error) {
+	now := time.Now()
+	if now.Sub(SavedCsgoTime) < 10*time.Second {
+		return SavedCsgoStatus, nil
+	}
+
 	res, err := http.Post("http://10.255.0.9:8001/api/exec/",
 		"application/json",
 		bytes.NewBufferString(`{"cmd": "cvarlist game_; status"}`))
@@ -95,6 +106,9 @@ func GetCsgoStatus() (CsgoStatus, error) {
 		}
 	}
 	status.GameMode = status.ParseGameMode()
+
+	SavedCsgoStatus = status
+	SavedCsgoTime = time.Now()
 	return status, nil
 }
 
@@ -109,6 +123,7 @@ func Handle206Csgo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("Cache-Control", "public, max-age=5")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(status)
 }
