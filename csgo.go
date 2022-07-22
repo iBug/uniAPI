@@ -14,11 +14,12 @@ import (
 )
 
 type CsgoStatus struct {
-	Map         string   `json:"map"`
-	GameMode    string   `json:"game_mode"`
-	PlayerCount int      `json:"player_count"`
-	BotCount    int      `json:"bot_count"`
-	Players     []string `json:"players"`
+	Time        time.Time `json:"time"`
+	Map         string    `json:"map"`
+	GameMode    string    `json:"game_mode"`
+	PlayerCount int       `json:"player_count"`
+	BotCount    int       `json:"bot_count"`
+	Players     []string  `json:"players"`
 
 	cvar_GameMode int
 	cvar_GameType int
@@ -40,7 +41,6 @@ var GAME_MODE_S = map[int]string{
 
 var (
 	SavedCsgoStatus CsgoStatus
-	SavedCsgoTime   time.Time
 )
 
 func (s *CsgoStatus) ParseGameMode() string {
@@ -55,7 +55,7 @@ func (s *CsgoStatus) ParseGameMode() string {
 
 func GetCsgoStatus() (CsgoStatus, error) {
 	now := time.Now()
-	if now.Sub(SavedCsgoTime) < 10*time.Second {
+	if now.Sub(SavedCsgoStatus.Time) < 10*time.Second {
 		return SavedCsgoStatus, nil
 	}
 
@@ -107,8 +107,8 @@ func GetCsgoStatus() (CsgoStatus, error) {
 	}
 	status.GameMode = status.ParseGameMode()
 
+	status.Time = time.Now().Truncate(time.Second)
 	SavedCsgoStatus = status
-	SavedCsgoTime = time.Now()
 	return status, nil
 }
 
