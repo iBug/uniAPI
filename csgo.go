@@ -43,7 +43,7 @@ var (
 	SavedCsgoStatus CsgoStatus
 )
 
-func (s *CsgoStatus) ParseGameMode() string {
+func (s CsgoStatus) ParseGameMode() string {
 	// Source: https://totalcsgo.com/command/gamemode
 	id := s.cvar_GameType*100 + s.cvar_GameMode
 	str, ok := GAME_MODE_S[id]
