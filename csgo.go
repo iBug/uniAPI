@@ -4,8 +4,8 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
-	"io"
 	"log"
+	"net"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -25,7 +25,13 @@ type CsgoStatus struct {
 	cvar_GameType int
 }
 
+type CsgoOnlinePayload struct {
+	Action string `json:"action"`
+	Name   string `json:"name"`
+}
+
 var RE_PLAYERS = *regexp.MustCompile(`(\d+) humans?, (\d+) bots?`)
+var RE_CONNECTED = *regexp.MustCompile(`"([^<]+)<(\d+)><([^>]+)><([^>]*)>" connected,`)
 var GAME_MODE_S = map[int]string{
 	0:   "casual",
 	1:   "competitive",
@@ -43,6 +49,12 @@ var (
 	SavedCsgoStatus CsgoStatus
 )
 
+const (
+	CSGO_RCON_API    = "http://10.255.0.9:8001/api/exec/"
+	CSGO_SERVER_ADDR = "10.255.0.9"
+	CSGO_ONLINE_API  = "https://api.ibugone.com/gh/206steam"
+)
+
 func (s CsgoStatus) ParseGameMode() string {
 	// Source: https://totalcsgo.com/command/gamemode
 	id := s.cvar_GameType*100 + s.cvar_GameMode
@@ -53,13 +65,12 @@ func (s CsgoStatus) ParseGameMode() string {
 	return "unknown"
 }
 
-func GetCsgoStatus() (CsgoStatus, error) {
-	now := time.Now()
-	if now.Sub(SavedCsgoStatus.Time) < 10*time.Second {
+func GetCsgoStatus(useCache bool) (CsgoStatus, error) {
+	if useCache && time.Now().Sub(SavedCsgoStatus.Time) < 10*time.Second {
 		return SavedCsgoStatus, nil
 	}
 
-	res, err := http.Post("http://10.255.0.9:8001/api/exec/",
+	res, err := http.Post(CSGO_RCON_API,
 		"application/json",
 		bytes.NewBufferString(`{"cmd": "cvarlist game_; status"}`))
 	if err != nil {
@@ -114,16 +125,84 @@ func GetCsgoStatus() (CsgoStatus, error) {
 
 func Handle206Csgo(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-
-	status, err := GetCsgoStatus()
+	status, err := GetCsgoStatus(true)
 	if err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
-		io.WriteString(w, `{"status": "internal server error}`)
+		w.Write([]byte(`{"status": "internal server error"}`))
 		return
 	}
 
 	w.Header().Set("Cache-Control", "public, max-age=5")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(status)
+}
+
+func CsgoSendOnlineNotice(name string) error {
+	payloadObj := CsgoOnlinePayload{Action: "goonline", Name: name}
+	payload, err := json.Marshal(payloadObj)
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequest("POST", CSGO_ONLINE_API, bytes.NewBuffer(payload))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-GitHub-Event", "ping")
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	return nil
+}
+
+func CsgoLogServer(listenAddr string) error {
+	serverAddr := net.ParseIP(CSGO_SERVER_ADDR)
+	listenUDPAddr, err := net.ResolveUDPAddr("udp", listenAddr)
+	ln, err := net.ListenUDP("udp", listenUDPAddr)
+	if err != nil {
+		return err
+	}
+	buf := make([]byte, 4096)
+	for {
+		n, addr, err := ln.ReadFromUDP(buf)
+		if err != nil {
+			log.Print(err)
+			continue
+		}
+		if !addr.IP.Equal(serverAddr) {
+			log.Printf("Received packet from unexpected address: %s", addr.IP)
+			continue
+		}
+		text := strings.TrimSpace(string(buf[:n]))
+		parts := strings.SplitN(text, ": ", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		if strings.Contains(parts[1], " connected,") || strings.Contains(parts[1], " entered the game ") {
+			// log.Print(parts[1])
+		}
+		matches := RE_CONNECTED.FindStringSubmatch(parts[1])
+		if len(matches) >= 5 && matches[3] != "BOT" {
+			status, err := GetCsgoStatus(false)
+			if err != nil {
+				log.Print(err)
+				continue
+			}
+			if status.PlayerCount != 1 {
+				continue
+			}
+			err = CsgoSendOnlineNotice(matches[1])
+			if err != nil {
+				log.Print(err)
+				continue
+			}
+		}
+	}
+}
+
+func StartCsgoLogServer(addr string) {
+	go CsgoLogServer(addr)
 }
