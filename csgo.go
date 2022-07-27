@@ -28,6 +28,7 @@ type CsgoStatus struct {
 type CsgoOnlinePayload struct {
 	Action string `json:"action"`
 	Name   string `json:"name"`
+	Count  int    `json:"count"`
 }
 
 var RE_PLAYERS = *regexp.MustCompile(`(\d+) humans?, (\d+) bots?`)
@@ -138,8 +139,8 @@ func Handle206Csgo(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(status)
 }
 
-func CsgoSendOnlineNotice(name string) error {
-	payloadObj := CsgoOnlinePayload{Action: "goonline", Name: name}
+func CsgoSendOnlineNotice(name string, count int) error {
+	payloadObj := CsgoOnlinePayload{Action: "goonline", Name: name, Count: count}
 	payload, err := json.Marshal(payloadObj)
 	if err != nil {
 		return err
@@ -192,10 +193,10 @@ func CsgoLogServer(listenAddr string) error {
 				log.Print(err)
 				continue
 			}
-			if status.PlayerCount != 1 {
+			if status.PlayerCount != 1 && status.PlayerCount != 2 {
 				continue
 			}
-			err = CsgoSendOnlineNotice(matches[1])
+			err = CsgoSendOnlineNotice(matches[1], status.PlayerCount)
 			if err != nil {
 				log.Print(err)
 				continue
