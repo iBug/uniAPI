@@ -53,6 +53,7 @@ var (
 const (
 	CSGO_RCON_API    = "http://10.255.0.9:8001/api/exec/"
 	CSGO_SERVER_ADDR = "10.255.0.9"
+	CSGO_SERVER_PORT = 27015
 	CSGO_ONLINE_API  = "https://api.ibugone.com/gh/206steam"
 )
 
@@ -173,8 +174,8 @@ func CsgoLogServer(listenAddr string) error {
 			log.Print(err)
 			continue
 		}
-		if !addr.IP.Equal(serverAddr) {
-			log.Printf("Received packet from unexpected address: %s", addr.IP)
+		if !addr.IP.Equal(serverAddr) || addr.Port != CSGO_SERVER_PORT {
+			log.Printf("Received packet from unexpected address: %s", addr)
 			continue
 		}
 		text := strings.TrimSpace(string(buf[:n]))
