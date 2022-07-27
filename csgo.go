@@ -186,6 +186,7 @@ func CsgoLogServer(listenAddr string) error {
 		}
 		matches := RE_CONNECTED.FindStringSubmatch(parts[1])
 		if len(matches) >= 5 && matches[3] != "BOT" {
+			log.Printf("%v connected\n", matches[1])
 			status, err := GetCsgoStatus(false)
 			if err != nil {
 				log.Print(err)
