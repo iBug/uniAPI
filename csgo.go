@@ -1,9 +1,9 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	rcon "github.com/forewing/csgo-rcon"
 )
 
 type CsgoStatus struct {
@@ -48,10 +50,15 @@ var GAME_MODE_S = map[int]string{
 
 var (
 	SavedCsgoStatus CsgoStatus
+
+	rconClient = rcon.New(fmt.Sprintf("%s:%d", CSGO_SERVER_ADDR, CSGO_SERVER_PORT),
+		CSGO_RCON_PASS,
+		time.Millisecond*100)
 )
 
 const (
 	CSGO_RCON_API    = "http://10.255.0.9:8001/api/exec/"
+	CSGO_RCON_PASS   = "pointeeserver"
 	CSGO_SERVER_ADDR = "10.255.0.9"
 	CSGO_SERVER_PORT = 27015
 	CSGO_ONLINE_API  = "https://api.ibugone.com/gh/206steam"
@@ -72,18 +79,14 @@ func GetCsgoStatus(useCache bool) (CsgoStatus, error) {
 		return SavedCsgoStatus, nil
 	}
 
-	res, err := http.Post(CSGO_RCON_API,
-		"application/json",
-		bytes.NewBufferString(`{"cmd": "cvarlist game_; status"}`))
+	msg, err := rconClient.Execute("cvarlist game_; status")
 	if err != nil {
 		return CsgoStatus{}, err
 	}
-	defer res.Body.Close()
 
 	status := CsgoStatus{Players: make([]string, 0, 10)}
-	scanner := bufio.NewScanner(res.Body)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
+	for _, line := range strings.Split(msg, "\n") {
+		line = strings.TrimSpace(line)
 		if len(line) == 0 {
 			continue
 		}
