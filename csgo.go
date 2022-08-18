@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -35,6 +36,7 @@ type CsgoOnlinePayload struct {
 
 var RE_PLAYERS = *regexp.MustCompile(`(\d+) humans?, (\d+) bots?`)
 var RE_CONNECTED = *regexp.MustCompile(`"([^<]+)<(\d+)><([^>]+)><([^>]*)>" connected,`)
+var RE_DISCONNECTED = *regexp.MustCompile(`"([^<]+)<(\d+)><([^>]+)><([^>]*)>" disconnected \(`)
 var GAME_MODE_S = map[int]string{
 	0:   "casual",
 	1:   "competitive",
@@ -57,11 +59,12 @@ var (
 )
 
 const (
-	CSGO_RCON_API    = "http://10.255.0.9:8001/api/exec/"
-	CSGO_RCON_PASS   = "pointeeserver"
-	CSGO_SERVER_ADDR = "10.255.0.9"
-	CSGO_SERVER_PORT = 27015
-	CSGO_ONLINE_API  = "https://api.ibugone.com/gh/206steam"
+	CSGO_RCON_API     = "http://10.255.0.9:8001/api/exec/"
+	CSGO_RCON_PASS    = "pointeeserver"
+	CSGO_SERVER_ADDR  = "10.255.0.9"
+	CSGO_SERVER_PORT  = 27015
+	CSGO_ONLINE_API   = "https://api.ibugone.com/gh/206steam"
+	CSGO_DISABLE_FILE = "/tmp/noonline"
 )
 
 func (s CsgoStatus) ParseGameMode() string {
@@ -143,8 +146,11 @@ func Handle206Csgo(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(status)
 }
 
-func CsgoSendOnlineNotice(name string, count int) error {
-	payloadObj := CsgoOnlinePayload{Action: "goonline", Name: name, Count: count}
+func CsgoSendOnlineNotice(action, name string, count int) error {
+	if _, err := os.Stat(CSGO_DISABLE_FILE); err == nil {
+		return nil
+	}
+	payloadObj := CsgoOnlinePayload{Action: action, Name: name, Count: count}
 	payload, err := json.Marshal(payloadObj)
 	if err != nil {
 		return err
@@ -163,6 +169,49 @@ func CsgoSendOnlineNotice(name string, count int) error {
 	return nil
 }
 
+func CsgoOnlineWorker(ch <-chan string) {
+	for s := range ch {
+		// Check online
+		matches := RE_CONNECTED.FindStringSubmatch(s)
+		if len(matches) >= 5 && matches[3] != "BOT" {
+			log.Printf("%v connected\n", matches[1])
+			status, err := GetCsgoStatus(false)
+			if err != nil {
+				log.Print(err)
+				continue
+			}
+			if status.PlayerCount < 1 || status.PlayerCount > 2 {
+				continue
+			}
+			err = CsgoSendOnlineNotice("goonline", matches[1], status.PlayerCount)
+			if err != nil {
+				log.Print(err)
+			}
+			continue
+		}
+
+		// Check offline
+		matches = RE_DISCONNECTED.FindStringSubmatch(s)
+		if len(matches) >= 5 && matches[3] != "BOT" {
+			log.Printf("%v disconnected\n", matches[1])
+			status, err := GetCsgoStatus(false)
+			if err != nil {
+				log.Print(err)
+				continue
+			}
+			if status.PlayerCount > 0 {
+				continue
+			}
+			err = CsgoSendOnlineNotice("gooffline", matches[1], status.PlayerCount)
+			if err != nil {
+				log.Print(err)
+			}
+			continue
+		}
+
+	}
+}
+
 func CsgoLogServer(listenAddr string) error {
 	serverAddr := net.ParseIP(CSGO_SERVER_ADDR)
 	listenUDPAddr, err := net.ResolveUDPAddr("udp", listenAddr)
@@ -171,6 +220,8 @@ func CsgoLogServer(listenAddr string) error {
 		return err
 	}
 	buf := make([]byte, 4096)
+	ch := make(chan string, 64)
+	go CsgoOnlineWorker(ch)
 	for {
 		n, addr, err := ln.ReadFromUDP(buf)
 		if err != nil {
@@ -186,26 +237,7 @@ func CsgoLogServer(listenAddr string) error {
 		if len(parts) != 2 {
 			continue
 		}
-		if strings.Contains(parts[1], " connected,") || strings.Contains(parts[1], " entered the game ") {
-			// log.Print(parts[1])
-		}
-		matches := RE_CONNECTED.FindStringSubmatch(parts[1])
-		if len(matches) >= 5 && matches[3] != "BOT" {
-			log.Printf("%v connected\n", matches[1])
-			status, err := GetCsgoStatus(false)
-			if err != nil {
-				log.Print(err)
-				continue
-			}
-			if status.PlayerCount != 1 && status.PlayerCount != 2 {
-				continue
-			}
-			err = CsgoSendOnlineNotice(matches[1], status.PlayerCount)
-			if err != nil {
-				log.Print(err)
-				continue
-			}
-		}
+		ch <- parts[1]
 	}
 }
 
