@@ -65,6 +65,8 @@ const (
 	CSGO_SERVER_PORT  = 27015
 	CSGO_ONLINE_API   = "https://api.ibugone.com/gh/206steam"
 	CSGO_DISABLE_FILE = "/tmp/noonline"
+
+	CSGO_CACHE_TIME = 10 * time.Second
 )
 
 func (s CsgoStatus) ParseGameMode() string {
@@ -78,7 +80,7 @@ func (s CsgoStatus) ParseGameMode() string {
 }
 
 func GetCsgoStatus(useCache bool) (CsgoStatus, error) {
-	if useCache && time.Now().Sub(SavedCsgoStatus.Time) < 10*time.Second {
+	if useCache && time.Now().Sub(SavedCsgoStatus.Time) < CSGO_CACHE_TIME {
 		return SavedCsgoStatus, nil
 	}
 
@@ -162,8 +164,13 @@ func CsgoSendOnlineNotice(action, name string, count int) error {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-GitHub-Event", "ping")
 	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return err
+	retry := 0
+	for err != nil {
+		retry++
+		if retry >= 3 {
+			return err
+		}
+		res, err = http.DefaultClient.Do(req)
 	}
 	defer res.Body.Close()
 	return nil
