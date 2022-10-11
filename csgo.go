@@ -48,10 +48,11 @@ var GAME_MODE_S = map[int]string{
 	300: "custom",
 	400: "cooperative",
 	500: "skirmish",
+	600: "danger zone",
 }
 
 var (
-	SavedCsgoStatus CsgoStatus
+	savedCsgoStatus CsgoStatus
 
 	rconClient = rcon.New(fmt.Sprintf("%s:%d", CSGO_SERVER_ADDR, CSGO_SERVER_PORT),
 		CSGO_RCON_PASS,
@@ -80,8 +81,8 @@ func (s CsgoStatus) ParseGameMode() string {
 }
 
 func GetCsgoStatus(useCache bool) (CsgoStatus, error) {
-	if useCache && time.Now().Sub(SavedCsgoStatus.Time) < CSGO_CACHE_TIME {
-		return SavedCsgoStatus, nil
+	if useCache && time.Now().Sub(savedCsgoStatus.Time) < CSGO_CACHE_TIME {
+		return savedCsgoStatus, nil
 	}
 
 	msg, err := rconClient.Execute("cvarlist game_; status")
@@ -129,7 +130,7 @@ func GetCsgoStatus(useCache bool) (CsgoStatus, error) {
 	status.GameMode = status.ParseGameMode()
 
 	status.Time = time.Now().Truncate(time.Second)
-	SavedCsgoStatus = status
+	savedCsgoStatus = status
 	return status, nil
 }
 
