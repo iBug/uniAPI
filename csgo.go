@@ -11,10 +11,19 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	rcon "github.com/forewing/csgo-rcon"
 )
+
+type CsgoLocalState struct {
+	CTScore      int `json:"ct_score"`
+	TScore       int `json:"t_score"`
+	Map          string
+	RoundsPlayed int  `json:"rounds_played"`
+	GameOngoing  bool `json:"game_ongoing"`
+}
 
 type CsgoStatus struct {
 	Time        time.Time `json:"time"`
@@ -23,6 +32,8 @@ type CsgoStatus struct {
 	PlayerCount int       `json:"player_count"`
 	BotCount    int       `json:"bot_count"`
 	Players     []string  `json:"players"`
+
+	LocalState CsgoLocalState `json:"local_state"`
 
 	cvar_GameMode int
 	cvar_GameType int
@@ -37,6 +48,8 @@ type CsgoOnlinePayload struct {
 var RE_PLAYERS = *regexp.MustCompile(`(\d+) humans?, (\d+) bots?`)
 var RE_CONNECTED = *regexp.MustCompile(`"([^<]+)<(\d+)><([^>]+)><([^>]*)>" connected,`)
 var RE_DISCONNECTED = *regexp.MustCompile(`"([^<]+)<(\d+)><([^>]+)><([^>]*)>" disconnected \(`)
+var RE_MATCH_STATUS = *regexp.MustCompile(`MatchStatus: Score: (\d+):(\d+) on map "(\w+)" RoundsPlayed: (\d+)`)
+var RE_GAME_OVER = *regexp.MustCompile(`^(Game Over:)`)
 var GAME_MODE_S = map[int]string{
 	0:   "casual",
 	1:   "competitive",
@@ -53,6 +66,8 @@ var GAME_MODE_S = map[int]string{
 
 var (
 	savedCsgoStatus CsgoStatus
+	localState      CsgoLocalState
+	localStateMu    sync.Mutex
 
 	rconClient = rcon.New(fmt.Sprintf("%s:%d", CSGO_SERVER_ADDR, CSGO_SERVER_PORT),
 		CSGO_RCON_PASS,
@@ -129,6 +144,10 @@ func GetCsgoStatus(useCache bool) (CsgoStatus, error) {
 	}
 	status.GameMode = status.ParseGameMode()
 
+	localStateMu.Lock()
+	status.LocalState = localState
+	localStateMu.Unlock()
+
 	status.Time = time.Now().Truncate(time.Second)
 	savedCsgoStatus = status
 	return status, nil
@@ -177,46 +196,71 @@ func CsgoSendOnlineNotice(action, name string, count int) error {
 	return nil
 }
 
+func CsgoHandleLogMessage(s string) {
+	// Check online
+	matches := RE_CONNECTED.FindStringSubmatch(s)
+	if len(matches) >= 5 && matches[3] != "BOT" {
+		log.Printf("%v connected\n", matches[1])
+		status, err := GetCsgoStatus(false)
+		if err != nil {
+			log.Print(err)
+			return
+		}
+		if status.PlayerCount < 1 || status.PlayerCount > 2 {
+			return
+		}
+		err = CsgoSendOnlineNotice("goonline", matches[1], status.PlayerCount)
+		if err != nil {
+			log.Print(err)
+		}
+		return
+	}
+
+	// Check offline
+	matches = RE_DISCONNECTED.FindStringSubmatch(s)
+	if len(matches) >= 5 && matches[3] != "BOT" {
+		log.Printf("%v disconnected\n", matches[1])
+		status, err := GetCsgoStatus(false)
+		if err != nil {
+			log.Print(err)
+			return
+		}
+		if status.PlayerCount > 0 {
+			return
+		}
+		err = CsgoSendOnlineNotice("gooffline", matches[1], status.PlayerCount)
+		if err != nil {
+			log.Print(err)
+		}
+		return
+	}
+
+	// Check game state
+	matches = RE_MATCH_STATUS.FindStringSubmatch(s)
+	if len(matches) >= 4 {
+		localStateMu.Lock()
+		localState.CTScore, _ = strconv.Atoi(matches[1])
+		localState.TScore, _ = strconv.Atoi(matches[2])
+		localState.Map = matches[3]
+		localState.RoundsPlayed, _ = strconv.Atoi(matches[4])
+		localState.GameOngoing = localState.RoundsPlayed >= 0
+		localStateMu.Unlock()
+		return
+	}
+
+	// Check game over
+	matches = RE_GAME_OVER.FindStringSubmatch(s)
+	if len(matches) > 0 {
+		localStateMu.Lock()
+		localState.GameOngoing = false
+		localStateMu.Unlock()
+		return
+	}
+}
+
 func CsgoOnlineWorker(ch <-chan string) {
 	for s := range ch {
-		// Check online
-		matches := RE_CONNECTED.FindStringSubmatch(s)
-		if len(matches) >= 5 && matches[3] != "BOT" {
-			log.Printf("%v connected\n", matches[1])
-			status, err := GetCsgoStatus(false)
-			if err != nil {
-				log.Print(err)
-				continue
-			}
-			if status.PlayerCount < 1 || status.PlayerCount > 2 {
-				continue
-			}
-			err = CsgoSendOnlineNotice("goonline", matches[1], status.PlayerCount)
-			if err != nil {
-				log.Print(err)
-			}
-			continue
-		}
-
-		// Check offline
-		matches = RE_DISCONNECTED.FindStringSubmatch(s)
-		if len(matches) >= 5 && matches[3] != "BOT" {
-			log.Printf("%v disconnected\n", matches[1])
-			status, err := GetCsgoStatus(false)
-			if err != nil {
-				log.Print(err)
-				continue
-			}
-			if status.PlayerCount > 0 {
-				continue
-			}
-			err = CsgoSendOnlineNotice("gooffline", matches[1], status.PlayerCount)
-			if err != nil {
-				log.Print(err)
-			}
-			continue
-		}
-
+		CsgoHandleLogMessage(s)
 	}
 }
 
