@@ -69,7 +69,7 @@ var (
 	localState      CsgoLocalState
 	localStateMu    sync.Mutex
 
-	rconClient = rcon.New(fmt.Sprintf("%s:%d", CSGO_SERVER_ADDR, CSGO_SERVER_PORT),
+	csgoRcon = rcon.New(fmt.Sprintf("%s:%d", CSGO_SERVER_ADDR, CSGO_SERVER_PORT),
 		CSGO_RCON_PASS,
 		time.Millisecond*100)
 )
@@ -100,7 +100,7 @@ func GetCsgoStatus(useCache bool) (CsgoStatus, error) {
 		return savedCsgoStatus, nil
 	}
 
-	msg, err := rconClient.Execute("cvarlist game_; status")
+	msg, err := csgoRcon.Execute("cvarlist game_; status")
 	if err != nil {
 		return CsgoStatus{}, err
 	}

@@ -41,7 +41,10 @@ func GetMinecraftStatus() (MinecraftStatus, error) {
 	m := RE_MC_LIST.FindStringSubmatch(msg)
 	status.Count, _ = strconv.Atoi(m[1])
 	status.MaxCount, _ = strconv.Atoi(m[2])
-	status.Players = strings.Split(strings.SplitN(msg, ": ", 2)[1], ", ")
+	playersStr := strings.SplitN(msg, ": ", 2)[1]
+	if len(playersStr) > 0 {
+		status.Players = strings.Split(strings.SplitN(msg, ": ", 2)[1], ", ")
+	}
 	status.Time = time.Now().Truncate(time.Second)
 	return status, nil
 }
