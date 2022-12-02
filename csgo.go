@@ -168,8 +168,13 @@ func Handle206Csgo(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(status)
 }
 
+func CsgoShouldSuppressNotice() bool {
+	_, err := os.Stat(CSGO_DISABLE_FILE)
+	return err == nil
+}
+
 func CsgoSendOnlineNotice(action, name string, count int) error {
-	if _, err := os.Stat(CSGO_DISABLE_FILE); err == nil {
+	if CsgoShouldSuppressNotice() {
 		return nil
 	}
 	payloadObj := CsgoOnlinePayload{Action: action, Name: name, Count: count}
