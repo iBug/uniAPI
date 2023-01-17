@@ -28,6 +28,7 @@ func main() {
 
 	http.HandleFunc("/csgo", Handle206Csgo)
 	http.HandleFunc("/minecraft", Handle206Minecraft)
+	http.HandleFunc("/factorio", Handle206Factorio)
 	http.HandleFunc("/206ip", Handle206IP)
 	http.HandleFunc("/ibug-auth", HandleIBugAuth)
 

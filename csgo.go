@@ -195,6 +195,7 @@ func CsgoSendOnlineNotice(action, name string, count int) error {
 		if retry >= 3 {
 			return err
 		}
+		time.Sleep(1 * time.Second)
 		res, err = http.DefaultClient.Do(req)
 	}
 	defer res.Body.Close()
