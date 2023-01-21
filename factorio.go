@@ -18,7 +18,7 @@ type FactorioStatus struct {
 }
 
 const (
-	FAC_SERVER_ADDR = "10.255.0.2"
+	FAC_SERVER_ADDR = "10.255.0.9"
 	FAC_RCON_PORT   = 34197
 	FAC_RCON_PASS   = "ohmy206rcon"
 )
