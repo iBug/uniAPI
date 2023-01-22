@@ -23,7 +23,7 @@ type ReaderInfo struct {
 
 func ValidateToken(header string, tokens []string) bool {
 	parts := strings.Fields(header)
-	if len(parts) > 2 {
+	if len(parts) == 0 || len(parts) > 2 {
 		return false
 	}
 	token := parts[0]
@@ -60,6 +60,14 @@ func HandleUstcId(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("CF-Connecting-IP") != "" &&
 		!ValidateToken(r.Header.Get("Authorization"), config.UstcTokens) {
 		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+
+	id := r.URL.Query().Get("id")
+	if id == "" {
+		log.Print("Missing 'id' parameter")
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 
 	req, err := http.NewRequest("GET", "https://api.lib.ustc.edu.cn/get_info_from_id.php", nil)
@@ -70,7 +78,7 @@ func HandleUstcId(w http.ResponseWriter, r *http.Request) {
 	}
 
 	q := url.Values{}
-	q.Add("id", "SA21011003")
+	q.Add("id", id)
 	req.URL.RawQuery = q.Encode()
 
 	res, err := ustcClient.Do(req)
