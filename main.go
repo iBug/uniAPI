@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -87,10 +88,16 @@ func main() {
 	mux.HandleFunc("/206ip", Handle206IP)
 	mux.HandleFunc("/ibug-auth", HandleIBugAuth)
 	mux.HandleFunc("/ustc-id", HandleUstcId)
+	mux.HandleFunc("/robots.txt", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(http.StatusOK)
+		io.WriteString(w, "User-Agent: *\nDisallow: /\n")
+	})
 
 	outerMux := http.NewServeMux()
 	outerMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		LogRequest(r)
+		w.Header().Set("X-Robots-Tag", "noindex")
 		mux.ServeHTTP(w, r)
 	})
 
