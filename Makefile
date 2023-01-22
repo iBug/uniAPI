@@ -2,7 +2,9 @@ BIN := api-ustc
 INSTALL := $(HOME)/.local/bin/$(BIN)
 SERVICE := $(BIN).service
 
-.PHONY: all restart
+SYSTEMCTL_COMMANDS := start stop restart status reload
+
+.PHONY: all $(SYSTEMCTL_COMMANDS) logs
 
 all: $(BIN) install
 
@@ -14,5 +16,8 @@ install: $(INSTALL)
 $(INSTALL): $(BIN)
 	cp -fp "$<" "$@"
 
-restart:
-	systemctl --user restart $(SERVICE)
+$(SYSTEMCTL_COMMANDS): %:
+	systemctl --user $@ $(SERVICE)
+
+logs:
+	journalctl --user -eu $(SERVICE)
