@@ -1,5 +1,6 @@
 BIN := api-ustc
 INSTALL := $(HOME)/.local/bin/$(BIN)
+SERVICE := $(BIN).service
 
 .PHONY: all restart
 
@@ -11,7 +12,7 @@ $(BIN): $(wildcard *.go) go.sum
 install: $(INSTALL)
 
 $(INSTALL): $(BIN)
-	cp -fp "$@" "$<"
+	cp -fp "$<" "$@"
 
 restart:
-	systemctl --user restart api-ustc.service
+	systemctl --user restart $(SERVICE)

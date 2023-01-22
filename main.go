@@ -12,13 +12,18 @@ var (
 	csgologAddr string
 )
 
+func LogRequest(r *http.Request) {
+	remoteAddr := r.Header.Get("CF-Connecting-IP")
+	log.Printf("%s %q from %s\n", r.Method, r.URL.Path, remoteAddr)
+}
+
 func main() {
 	flag.StringVar(&listenAddr, "l", ":8000", "listen address")
 	flag.StringVar(&csgologAddr, "csgolog", "", "CS:GO log listen address")
 	flag.Parse()
 
-	// $INVOCATION_ID is set by systemd v232+
-	if _, ok := os.LookupEnv("INVOCATION_ID"); ok {
+	// $JOURNAL_STREAM is set by systemd v231+
+	if _, ok := os.LookupEnv("JOURNAL_STREAM"); ok {
 		log.SetFlags(log.Flags() &^ (log.Ldate | log.Ltime))
 	}
 
@@ -26,11 +31,18 @@ func main() {
 		StartCsgoLogServer(csgologAddr)
 	}
 
-	http.HandleFunc("/csgo", Handle206Csgo)
-	http.HandleFunc("/minecraft", Handle206Minecraft)
-	http.HandleFunc("/factorio", Handle206Factorio)
-	http.HandleFunc("/206ip", Handle206IP)
-	http.HandleFunc("/ibug-auth", HandleIBugAuth)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/csgo", Handle206Csgo)
+	mux.HandleFunc("/minecraft", Handle206Minecraft)
+	mux.HandleFunc("/factorio", Handle206Factorio)
+	mux.HandleFunc("/206ip", Handle206IP)
+	mux.HandleFunc("/ibug-auth", HandleIBugAuth)
 
-	log.Fatal(http.ListenAndServe(listenAddr, nil))
+	outerMux := http.NewServeMux()
+	outerMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		LogRequest(r)
+		mux.ServeHTTP(w, r)
+	})
+
+	log.Fatal(http.ListenAndServe(listenAddr, outerMux))
 }
