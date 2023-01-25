@@ -95,13 +95,16 @@ type TSOnlineChannel struct {
 	Clients []string `json:"clients"`
 }
 
-type TSOnlinePayload struct {
-	Count int `json:"count"`
+type TSStatus struct {
+	Time  time.Time `json:"time"`
+	Count int       `json:"count"`
 
 	Channels []TSOnlineChannel `json:"channels"`
 }
 
-func GetTeamspeakOnline() (result TSOnlinePayload, err error) {
+func GetTeamspeakOnline() (result TSStatus, err error) {
+	result.Time = time.Now().Truncate(time.Second)
+
 	clients, err := TSGetClients()
 	if err != nil {
 		return
