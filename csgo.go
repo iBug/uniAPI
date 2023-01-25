@@ -96,7 +96,7 @@ func (s CsgoStatus) ParseGameMode() string {
 }
 
 func GetCsgoStatus(useCache bool) (CsgoStatus, error) {
-	if useCache && time.Now().Sub(savedCsgoStatus.Time) < CSGO_CACHE_TIME {
+	if useCache && time.Since(savedCsgoStatus.Time) < CSGO_CACHE_TIME {
 		return savedCsgoStatus, nil
 	}
 
@@ -273,6 +273,10 @@ func CsgoOnlineWorker(ch <-chan string) {
 func CsgoLogServer(listenAddr string) error {
 	serverAddr := net.ParseIP(CSGO_SERVER_ADDR)
 	listenUDPAddr, err := net.ResolveUDPAddr("udp", listenAddr)
+	if err != nil {
+		return err
+	}
+
 	ln, err := net.ListenUDP("udp", listenUDPAddr)
 	if err != nil {
 		return err

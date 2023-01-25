@@ -13,7 +13,8 @@ import (
 )
 
 type Config struct {
-	UstcTokens []string `json:"ustc-tokens"`
+	Teamspeak  TeamspeakConfig `json:"teamspeak"`
+	UstcTokens []string        `json:"ustc-tokens"`
 }
 
 var (
@@ -69,6 +70,7 @@ func main() {
 		StartCsgoLogServer(csgologAddr)
 	}
 
+	// Reload config on SIGHUP
 	signalC := make(chan os.Signal)
 	signal.Notify(signalC, syscall.SIGHUP)
 	go func() {
@@ -85,6 +87,7 @@ func main() {
 	mux.HandleFunc("/csgo", Handle206Csgo)
 	mux.HandleFunc("/minecraft", Handle206Minecraft)
 	mux.HandleFunc("/factorio", Handle206Factorio)
+	mux.HandleFunc("/teamspeak", HandleTeamspeakOnline)
 	mux.HandleFunc("/206ip", Handle206IP)
 	mux.HandleFunc("/ibug-auth", HandleIBugAuth)
 	mux.HandleFunc("/ustc-id", HandleUstcId)

@@ -2,6 +2,9 @@ BIN := api-ustc
 INSTALL := $(HOME)/.local/bin/$(BIN)
 SERVICE := $(BIN).service
 
+GOFLAGS := -compiler=gccgo -gccgoflags='-s -w'
+#GOFLAGS =
+
 SYSTEMCTL_COMMANDS := start stop restart status reload
 
 .PHONY: all $(SYSTEMCTL_COMMANDS) logs
@@ -9,7 +12,7 @@ SYSTEMCTL_COMMANDS := start stop restart status reload
 all: $(BIN) install
 
 $(BIN): $(wildcard *.go) go.sum
-	go build -compiler=gccgo -gccgoflags='-s -w' -o "$@"
+	go build $(GOFLAGS) -o "$@"
 
 install: $(INSTALL)
 
