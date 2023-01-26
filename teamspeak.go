@@ -26,19 +26,69 @@ type TSQueryResponse struct {
 }
 
 type TSChannel struct {
-	ID           string `json:"cid"`
+	ID           int    `json:"cid"`
 	Name         string `json:"channel_name"`
+	Order        int    `json:"channel_order"`
+	Parent       int    `json:"pid"`
+	TotalClients int    `json:"total_clients"`
+}
+
+// Only to work around stupid TeamSpeak API
+// http://choly.ca/post/go-json-marshalling/
+type TSChannelA TSChannel
+type TSChannelS struct {
+	*TSChannelA
+
+	ID           string `json:"cid"`
 	Order        string `json:"channel_order"`
 	Parent       string `json:"pid"`
 	TotalClients string `json:"total_clients"`
 }
 
+func (c *TSChannel) UnmarshalJSON(data []byte) error {
+	aux := &TSChannelS{TSChannelA: (*TSChannelA)(c)}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	c.ID, _ = strconv.Atoi(aux.ID)
+	c.Order, _ = strconv.Atoi(aux.Order)
+	c.Parent, _ = strconv.Atoi(aux.Parent)
+	c.TotalClients, _ = strconv.Atoi(aux.TotalClients)
+	return nil
+}
+
 type TSClient struct {
+	ChannelID  int    `json:"cid"`
+	ID         int    `json:"clid"`
+	DatabaseID int    `json:"client_database_id"`
+	Nickname   string `json:"client_nickname"`
+	Type       int    `json:"client_type"`
+}
+type TSClientA TSClient
+type TSClientS struct {
+	*TSClientA
+
 	ChannelID  string `json:"cid"`
 	ID         string `json:"clid"`
 	DatabaseID string `json:"client_database_id"`
-	Nickname   string `json:"client_nickname"`
 	Type       string `json:"client_type"`
+}
+
+func (c *TSClient) UnmarshalJSON(data []byte) error {
+	aux := &TSClientS{TSClientA: (*TSClientA)(c)}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	c.ChannelID, _ = strconv.Atoi(aux.ChannelID)
+	c.ID, _ = strconv.Atoi(aux.ID)
+	c.DatabaseID, _ = strconv.Atoi(aux.DatabaseID)
+	c.Type, _ = strconv.Atoi(aux.Type)
+	return nil
+}
+
+type TSClientInfo struct {
+	ID   string `json:"cid"`
+	Away string `json:"client_away"`
 }
 
 var tshttpClient = &http.Client{
@@ -89,17 +139,12 @@ func TSGetChannels() ([]TSChannel, error) {
 	return channels, nil
 }
 
-type TSOnlineChannel struct {
-	Name    string   `json:"name"`
-	Order   int      `json:"-"`
-	Clients []string `json:"clients"`
-}
-
 type TSStatus struct {
 	Time  time.Time `json:"time"`
 	Count int       `json:"count"`
 
-	Channels []TSOnlineChannel `json:"channels"`
+	Channels []TSChannel `json:"channels"`
+	Clients  []TSClient  `json:"clients"`
 }
 
 func GetTeamspeakOnline() (result TSStatus, err error) {
@@ -114,43 +159,29 @@ func GetTeamspeakOnline() (result TSStatus, err error) {
 		return
 	}
 
-	// Build a map of channel ID to channel name
-	channelMap := make(map[string]*TSOnlineChannel)
-	for _, channel := range channels {
-		order, err := strconv.Atoi(channel.Order)
-		if err != nil {
-			order = 0
-		}
-		channelMap[channel.ID] = &TSOnlineChannel{
-			Name:  channel.Name,
-			Order: order,
-		}
-	}
-
-	// Build a map of channel ID to clients
+	// Skip "system users"
+	newClients := make([]TSClient, 0, len(clients))
 	for _, client := range clients {
-		if client.Type != "0" {
-			continue
+		if client.Type == 0 {
+			newClients = append(newClients, client)
 		}
-		channelMap[client.ChannelID].Clients = append(channelMap[client.ChannelID].Clients, client.Nickname)
 	}
+	clients = newClients
 
-	// Build channel list
-	channelList := make([]TSOnlineChannel, 0)
-	for _, channel := range channelMap {
-		if len(channel.Clients) == 0 {
-			continue
+	sort.Slice(clients, func(i, j int) bool {
+		return clients[i].ID < clients[j].ID
+	})
+	sort.Slice(channels, func(i, j int) bool {
+		if channels[i].Parent < channels[j].Parent {
+			return true
+		} else if channels[i].Parent > channels[j].Parent {
+			return false
 		}
-		result.Count += len(channel.Clients)
-		channelList = append(channelList, *channel)
-	}
-
-	// Sort channels
-	sort.Slice(channelList, func(i, j int) bool {
-		return channelList[i].Order < channelList[j].Order
+		return channels[i].Order < channels[j].Order
 	})
 
-	result.Channels = channelList
+	result.Channels = channels
+	result.Clients = clients
 	return
 }
 
