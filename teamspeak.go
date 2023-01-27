@@ -47,7 +47,7 @@ type TSChannelS struct {
 
 func (c *TSChannel) UnmarshalJSON(data []byte) error {
 	aux := &TSChannelS{TSChannelA: (*TSChannelA)(c)}
-	if err := json.Unmarshal(data, &aux); err != nil {
+	if err := json.Unmarshal(data, aux); err != nil {
 		return err
 	}
 	c.ID, _ = strconv.Atoi(aux.ID)
@@ -76,7 +76,7 @@ type TSClientS struct {
 
 func (c *TSClient) UnmarshalJSON(data []byte) error {
 	aux := &TSClientS{TSClientA: (*TSClientA)(c)}
-	if err := json.Unmarshal(data, &aux); err != nil {
+	if err := json.Unmarshal(data, aux); err != nil {
 		return err
 	}
 	c.ChannelID, _ = strconv.Atoi(aux.ChannelID)
