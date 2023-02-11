@@ -45,11 +45,11 @@ type CsgoOnlinePayload struct {
 	Count  int    `json:"count"`
 }
 
-var RE_PLAYERS = *regexp.MustCompile(`(\d+) humans?, (\d+) bots?`)
-var RE_CONNECTED = *regexp.MustCompile(`"([^<]+)<(\d+)><([^>]+)><([^>]*)>" connected,`)
-var RE_DISCONNECTED = *regexp.MustCompile(`"([^<]+)<(\d+)><([^>]+)><([^>]*)>" disconnected \(`)
-var RE_MATCH_STATUS = *regexp.MustCompile(`MatchStatus: Score: (\d+):(\d+) on map "(\w+)" RoundsPlayed: (\d+)`)
-var RE_GAME_OVER = *regexp.MustCompile(`^(Game Over:)`)
+var RE_PLAYERS = regexp.MustCompile(`(\d+) humans?, (\d+) bots?`)
+var RE_CONNECTED = regexp.MustCompile(`"([^<]+)<(\d+)><([^>]+)><([^>]*)>" connected,`)
+var RE_DISCONNECTED = regexp.MustCompile(`"([^<]+)<(\d+)><([^>]+)><([^>]*)>" disconnected \(`)
+var RE_MATCH_STATUS = regexp.MustCompile(`MatchStatus: Score: (\d+):(\d+) on map "(\w+)" RoundsPlayed: (\d+)`)
+var RE_GAME_OVER = regexp.MustCompile(`^(Game Over:)`)
 var GAME_MODE_S = map[int]string{
 	0:   "casual",
 	1:   "competitive",
@@ -159,7 +159,7 @@ func Handle206Csgo(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"status": "internal server error"}`))
+		json.NewEncoder(w).Encode(map[string]string{"status": err.Error()})
 		return
 	}
 
