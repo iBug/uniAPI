@@ -40,20 +40,21 @@ func ValidateToken(header string, tokens []string) bool {
 }
 
 var (
-	ustcDialer = &net.Dialer{
-		Timeout:   3 * time.Second,
-		KeepAlive: 3 * time.Second,
+	ustcTimeout = 3 * time.Second
+	ustcDialer  = &net.Dialer{
+		Timeout:   ustcTimeout,
+		KeepAlive: ustcTimeout,
 		LocalAddr: &net.TCPAddr{IP: net.ParseIP("10.255.1.3")},
 	}
 	ustcTransport = &http.Transport{
 		Proxy:                 http.ProxyFromEnvironment,
 		DialContext:           ustcDialer.DialContext,
 		MaxIdleConns:          3,
-		IdleConnTimeout:       30 * time.Second,
-		TLSHandshakeTimeout:   3 * time.Second,
+		IdleConnTimeout:       10 * ustcTimeout,
+		TLSHandshakeTimeout:   ustcTimeout,
 		ExpectContinueTimeout: 1 * time.Second,
 	}
-	ustcClient = &http.Client{Transport: ustcTransport, Timeout: 3 * time.Second}
+	ustcClient = &http.Client{Transport: ustcTransport, Timeout: ustcTimeout}
 )
 
 func HandleUstcId(w http.ResponseWriter, r *http.Request) {
@@ -104,5 +105,6 @@ func HandleUstcId(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&info)
 }

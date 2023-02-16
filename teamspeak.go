@@ -92,7 +92,7 @@ type TSClientInfo struct {
 }
 
 var tshttpClient = &http.Client{
-	Timeout: 150 * time.Millisecond,
+	Timeout: 500 * time.Millisecond,
 }
 
 func TSQueryHTTP(method string) (*http.Response, error) {
