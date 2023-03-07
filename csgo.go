@@ -54,6 +54,7 @@ var GAME_MODE_S = map[int]string{
 	0:   "casual",
 	1:   "competitive",
 	2:   "scrim competitive",
+	3:   "5v5 scrim competitive",
 	100: "arms race",
 	101: "demolition",
 	102: "deathmatch",
@@ -75,7 +76,6 @@ var (
 )
 
 const (
-	CSGO_RCON_API     = "http://10.255.0.9:8001/api/exec/"
 	CSGO_RCON_PASS    = "pointeeserver"
 	CSGO_SERVER_ADDR  = "10.255.0.9"
 	CSGO_SERVER_PORT  = 27015
@@ -85,11 +85,10 @@ const (
 	CSGO_CACHE_TIME = 10 * time.Second
 )
 
-func (s CsgoStatus) ParseGameMode() string {
+func (s *CsgoStatus) ParseGameMode() string {
 	// Source: https://totalcsgo.com/command/gamemode
 	id := s.cvar_GameType*100 + s.cvar_GameMode
-	str, ok := GAME_MODE_S[id]
-	if ok {
+	if str, ok := GAME_MODE_S[id]; ok {
 		return str
 	}
 	return "unknown"
@@ -191,6 +190,7 @@ func CsgoSendOnlineNotice(action, name string, count int) error {
 	res, err := http.DefaultClient.Do(req)
 	retry := 0
 	for err != nil {
+		log.Printf("SendOnlineNotice error %d: %v\n", retry, err)
 		retry++
 		if retry >= 3 {
 			return err

@@ -15,6 +15,7 @@ import (
 type Config struct {
 	Teamspeak  TeamspeakConfig `json:"teamspeak"`
 	UstcTokens []string        `json:"ustc-tokens"`
+	WgPubkey   string          `json:"wg-pubkey"`
 }
 
 var (
@@ -52,6 +53,8 @@ func LoadConfig() error {
 	return nil
 }
 
+var mainMux = http.NewServeMux()
+
 func main() {
 	flag.StringVar(&listenAddr, "l", ":8000", "listen address")
 	flag.StringVar(&csgologAddr, "csgolog", "", "CS:GO log listen address")
@@ -71,7 +74,7 @@ func main() {
 	}
 
 	// Reload config on SIGHUP
-	signalC := make(chan os.Signal)
+	signalC := make(chan os.Signal, 1)
 	signal.Notify(signalC, syscall.SIGHUP)
 	go func() {
 		for range signalC {
@@ -83,26 +86,24 @@ func main() {
 		}
 	}()
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/csgo", Handle206Csgo)
-	mux.HandleFunc("/minecraft", Handle206Minecraft)
-	mux.HandleFunc("/factorio", Handle206Factorio)
-	mux.HandleFunc("/teamspeak", HandleTeamspeakOnline)
-	mux.HandleFunc("/206ip", Handle206IP)
-	mux.HandleFunc("/ibug-auth", HandleIBugAuth)
-	mux.HandleFunc("/ustc-id", HandleUstcId)
-	mux.HandleFunc("/robots.txt", func(w http.ResponseWriter, r *http.Request) {
+	mainMux.HandleFunc("/csgo", Handle206Csgo)
+	mainMux.HandleFunc("/minecraft", Handle206Minecraft)
+	mainMux.HandleFunc("/factorio", Handle206Factorio)
+	mainMux.HandleFunc("/teamspeak", HandleTeamspeakOnline)
+	mainMux.HandleFunc("/206ip", Handle206IP)
+	mainMux.HandleFunc("/ibug-auth", HandleIBugAuth)
+	mainMux.HandleFunc("/ustc-id", HandleUstcId)
+	mainMux.HandleFunc("/robots.txt", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
 		w.WriteHeader(http.StatusOK)
 		io.WriteString(w, "User-Agent: *\nDisallow: /\n")
 	})
 
-	outerMux := http.NewServeMux()
-	outerMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		LogRequest(r)
 		w.Header().Set("X-Robots-Tag", "noindex")
-		mux.ServeHTTP(w, r)
+		mainMux.ServeHTTP(w, r)
 	})
-
-	log.Fatal(http.ListenAndServe(listenAddr, outerMux))
+	log.Fatal(http.ListenAndServe(listenAddr, mux))
 }

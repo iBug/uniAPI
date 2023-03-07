@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"log"
 	"net/http"
@@ -8,10 +9,9 @@ import (
 	"strings"
 )
 
-const WG_PUBKEY_206 = "9oG+6Ba3x9KOw5D6xfOXzE0qOJFc+WhNlGV9PUGpSDc="
-
 func Handle206IP(w http.ResponseWriter, req *http.Request) {
-	outb, err := exec.Command("/usr/bin/sudo", "/usr/bin/wg", "show", "wg0", "endpoints").Output()
+	cmd := exec.Command("/usr/bin/sudo", "/usr/bin/wg", "show", "wg0", "endpoints")
+	r, err := cmd.StdoutPipe()
 	if err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -19,13 +19,16 @@ func Handle206IP(w http.ResponseWriter, req *http.Request) {
 		fmt.Fprintf(w, "internal server error: %s\n", err)
 		return
 	}
-	out := strings.Split(string(outb), "\n")
-	for _, line := range out {
-		parts := strings.Split(line, "\t")
+
+	cmd.Start()
+	defer cmd.Wait()
+	scanner := bufio.NewScanner(r)
+	for scanner.Scan() {
+		parts := strings.Split(scanner.Text(), "\t")
 		if len(parts) != 2 {
 			break
 		}
-		if parts[0] == WG_PUBKEY_206 {
+		if parts[0] == config.WgPubkey {
 			ip := strings.Split(parts[1], ":")[0]
 			w.WriteHeader(http.StatusOK)
 			w.Header().Set("Content-Type", "text/plain")
