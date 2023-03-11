@@ -7,7 +7,6 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -17,7 +16,7 @@ import (
 	rcon "github.com/forewing/csgo-rcon"
 )
 
-type CsgoLocalState struct {
+type LocalState struct {
 	CTScore      int `json:"ct_score"`
 	TScore       int `json:"t_score"`
 	Map          string
@@ -25,7 +24,7 @@ type CsgoLocalState struct {
 	GameOngoing  bool `json:"game_ongoing"`
 }
 
-type CsgoStatus struct {
+type Status struct {
 	Time        time.Time `json:"time"`
 	Map         string    `json:"map"`
 	GameMode    string    `json:"game_mode"`
@@ -33,13 +32,13 @@ type CsgoStatus struct {
 	BotCount    int       `json:"bot_count"`
 	Players     []string  `json:"players"`
 
-	LocalState CsgoLocalState `json:"local_state"`
+	LocalState LocalState `json:"local_state"`
 
 	cvar_GameMode int
 	cvar_GameType int
 }
 
-type CsgoOnlinePayload struct {
+type OnlinePayload struct {
 	Action string `json:"action"`
 	Name   string `json:"name"`
 	Count  int    `json:"count"`
@@ -65,15 +64,37 @@ var GAME_MODE_S = map[int]string{
 	600: "danger zone",
 }
 
-var (
-	savedCsgoStatus CsgoStatus
-	localState      CsgoLocalState
-	localStateMu    sync.Mutex
+type Client struct {
+	ServerAddr string
+	ServerPort int
+	Password   string
+	Timeout    time.Duration
+	Api        string
+	CacheTime  time.Duration
 
-	csgoRcon = rcon.New(fmt.Sprintf("%s:%d", CSGO_SERVER_ADDR, CSGO_SERVER_PORT),
-		CSGO_RCON_PASS,
-		time.Millisecond*100)
-)
+	SilentFunc func() bool
+
+	savedStatus  Status
+	localState   LocalState
+	localStateMu sync.Mutex
+	rcon         *rcon.Client
+}
+
+func NewClient(serverAddr string, serverPort int, password string, timeout time.Duration) *Client {
+	c := &Client{
+		ServerAddr: serverAddr,
+		ServerPort: serverPort,
+		Password:   password,
+		Timeout:    timeout,
+		CacheTime:  10 * time.Second,
+	}
+	c.Init()
+	return c
+}
+
+func (c *Client) Init() {
+	c.rcon = rcon.New(fmt.Sprintf("%s:%d", c.ServerAddr, c.ServerPort), c.Password, c.Timeout)
+}
 
 const (
 	CSGO_RCON_PASS    = "pointeeserver"
@@ -85,7 +106,7 @@ const (
 	CSGO_CACHE_TIME = 10 * time.Second
 )
 
-func (s *CsgoStatus) ParseGameMode() string {
+func (s *Status) ParseGameMode() string {
 	// Source: https://totalcsgo.com/command/gamemode
 	id := s.cvar_GameType*100 + s.cvar_GameMode
 	if str, ok := GAME_MODE_S[id]; ok {
@@ -94,24 +115,24 @@ func (s *CsgoStatus) ParseGameMode() string {
 	return "unknown"
 }
 
-func GetCsgoStatus(useCache bool) (CsgoStatus, error) {
-	if useCache && time.Since(savedCsgoStatus.Time) < CSGO_CACHE_TIME {
-		return savedCsgoStatus, nil
+func (c *Client) GetStatus(useCache bool) (Status, error) {
+	if useCache && time.Since(c.savedStatus.Time) < CSGO_CACHE_TIME {
+		return c.savedStatus, nil
 	}
 
-	msg, err := csgoRcon.Execute("cvarlist game_; status")
+	msg, err := c.rcon.Execute("cvarlist game_; status")
 	retries := 0
 	for err != nil {
 		retries++
 		log.Printf("GetCsgoStatus rcon error %d: %v", retries, err)
 		if retries >= 3 {
-			return CsgoStatus{}, fmt.Errorf("GetCsgoStatus error: %w", err)
+			return Status{}, fmt.Errorf("GetCsgoStatus error: %w", err)
 		}
 		time.Sleep(1 * time.Second)
-		msg, err = csgoRcon.Execute("cvarlist game_; status")
+		msg, err = c.rcon.Execute("cvarlist game_; status")
 	}
 
-	status := CsgoStatus{Players: make([]string, 0, 10)}
+	status := Status{Players: make([]string, 0, 10)}
 	for _, line := range strings.Split(msg, "\n") {
 		line = strings.TrimSpace(line)
 		if len(line) == 0 {
@@ -150,18 +171,19 @@ func GetCsgoStatus(useCache bool) (CsgoStatus, error) {
 	}
 	status.GameMode = status.ParseGameMode()
 
-	localStateMu.Lock()
-	status.LocalState = localState
-	localStateMu.Unlock()
+	c.localStateMu.Lock()
+	status.LocalState = c.localState
+	c.localStateMu.Unlock()
 
 	status.Time = time.Now().Truncate(time.Second)
-	savedCsgoStatus = status
+	c.savedStatus = status
 	return status, nil
 }
 
-func Handle206Csgo(w http.ResponseWriter, r *http.Request) {
+// ServeHTTP implements the http.Handler interface.
+func (c *Client) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	status, err := GetCsgoStatus(true)
+	status, err := c.GetStatus(true)
 	if err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -174,21 +196,23 @@ func Handle206Csgo(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(status)
 }
 
-func CsgoShouldSuppressNotice() bool {
-	_, err := os.Stat(CSGO_DISABLE_FILE)
-	return err == nil
+func (c *Client) ShouldSuppressNotice() bool {
+	if c.SilentFunc != nil {
+		return c.SilentFunc()
+	}
+	return false
 }
 
-func CsgoSendOnlineNotice(action, name string, count int) error {
-	if CsgoShouldSuppressNotice() {
+func (c *Client) SendOnlineNotice(action, name string, count int) error {
+	if c.ShouldSuppressNotice() {
 		return nil
 	}
-	payloadObj := CsgoOnlinePayload{Action: action, Name: name, Count: count}
+	payloadObj := OnlinePayload{Action: action, Name: name, Count: count}
 	payload, err := json.Marshal(payloadObj)
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequest("POST", CSGO_ONLINE_API, bytes.NewBuffer(payload))
+	req, err := http.NewRequest("POST", c.Api, bytes.NewBuffer(payload))
 	if err != nil {
 		return err
 	}
@@ -209,12 +233,12 @@ func CsgoSendOnlineNotice(action, name string, count int) error {
 	return nil
 }
 
-func CsgoHandleLogMessage(s string) {
+func (c *Client) HandleLogMessage(s string) {
 	// Check online
 	matches := RE_CONNECTED.FindStringSubmatch(s)
 	if len(matches) >= 5 && matches[3] != "BOT" {
 		log.Printf("%v connected\n", matches[1])
-		status, err := GetCsgoStatus(false)
+		status, err := c.GetStatus(false)
 		if err != nil {
 			log.Print(err)
 			return
@@ -222,7 +246,7 @@ func CsgoHandleLogMessage(s string) {
 		if status.PlayerCount < 1 || status.PlayerCount > 2 {
 			return
 		}
-		err = CsgoSendOnlineNotice("goonline", matches[1], status.PlayerCount)
+		err = c.SendOnlineNotice("goonline", matches[1], status.PlayerCount)
 		if err != nil {
 			log.Print(err)
 		}
@@ -233,7 +257,7 @@ func CsgoHandleLogMessage(s string) {
 	matches = RE_DISCONNECTED.FindStringSubmatch(s)
 	if len(matches) >= 5 && matches[3] != "BOT" {
 		log.Printf("%v disconnected\n", matches[1])
-		status, err := GetCsgoStatus(false)
+		status, err := c.GetStatus(false)
 		if err != nil {
 			log.Print(err)
 			return
@@ -241,7 +265,7 @@ func CsgoHandleLogMessage(s string) {
 		if status.PlayerCount > 0 {
 			return
 		}
-		err = CsgoSendOnlineNotice("gooffline", matches[1], status.PlayerCount)
+		err = c.SendOnlineNotice("gooffline", matches[1], status.PlayerCount)
 		if err != nil {
 			log.Print(err)
 		}
@@ -251,34 +275,34 @@ func CsgoHandleLogMessage(s string) {
 	// Check game state
 	matches = RE_MATCH_STATUS.FindStringSubmatch(s)
 	if len(matches) >= 4 {
-		localStateMu.Lock()
-		localState.CTScore, _ = strconv.Atoi(matches[1])
-		localState.TScore, _ = strconv.Atoi(matches[2])
-		localState.Map = matches[3]
-		localState.RoundsPlayed, _ = strconv.Atoi(matches[4])
-		localState.GameOngoing = localState.RoundsPlayed >= 0
-		localStateMu.Unlock()
+		c.localStateMu.Lock()
+		c.localState.CTScore, _ = strconv.Atoi(matches[1])
+		c.localState.TScore, _ = strconv.Atoi(matches[2])
+		c.localState.Map = matches[3]
+		c.localState.RoundsPlayed, _ = strconv.Atoi(matches[4])
+		c.localState.GameOngoing = c.localState.RoundsPlayed >= 0
+		c.localStateMu.Unlock()
 		return
 	}
 
 	// Check game over
 	matches = RE_GAME_OVER.FindStringSubmatch(s)
 	if len(matches) > 0 {
-		localStateMu.Lock()
-		localState.GameOngoing = false
-		localStateMu.Unlock()
+		c.localStateMu.Lock()
+		c.localState.GameOngoing = false
+		c.localStateMu.Unlock()
 		return
 	}
 }
 
-func CsgoOnlineWorker(ch <-chan string) {
+func (c *Client) OnlineWorker(ch <-chan string) {
 	for s := range ch {
-		CsgoHandleLogMessage(s)
+		c.HandleLogMessage(s)
 	}
 }
 
-func CsgoLogServer(listenAddr string) error {
-	serverAddr := net.ParseIP(CSGO_SERVER_ADDR)
+func (c *Client) LogServer(listenAddr string) error {
+	serverAddr := net.ParseIP(c.ServerAddr)
 	listenUDPAddr, err := net.ResolveUDPAddr("udp", listenAddr)
 	if err != nil {
 		return fmt.Errorf("ResolveUDPAddr %#v: %w", listenAddr, err)
@@ -290,14 +314,14 @@ func CsgoLogServer(listenAddr string) error {
 	}
 	buf := make([]byte, 4096)
 	ch := make(chan string, 64)
-	go CsgoOnlineWorker(ch)
+	go c.OnlineWorker(ch)
 	for {
 		n, addr, err := ln.ReadFromUDP(buf)
 		if err != nil {
 			log.Print(err)
 			continue
 		}
-		if !addr.IP.Equal(serverAddr) || addr.Port != CSGO_SERVER_PORT {
+		if !addr.IP.Equal(serverAddr) || addr.Port != c.ServerPort {
 			log.Printf("Received packet from unexpected address: %s", addr)
 			continue
 		}
@@ -310,6 +334,6 @@ func CsgoLogServer(listenAddr string) error {
 	}
 }
 
-func StartCsgoLogServer(addr string) {
-	go CsgoLogServer(addr)
+func (c *Client) StartLogServer(addr string) {
+	go c.LogServer(addr)
 }

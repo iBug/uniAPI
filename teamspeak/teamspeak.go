@@ -8,6 +8,8 @@ import (
 	"sort"
 	"strconv"
 	"time"
+
+	"github.com/iBug/api-ustc/common"
 )
 
 type TeamspeakConfig struct {
@@ -91,23 +93,39 @@ type TSClientInfo struct {
 	Away string `json:"client_away"`
 }
 
-var tshttpClient = &http.Client{
-	Timeout: 500 * time.Millisecond,
+type Client struct {
+	Tokens []string
+
+	endpoint   string
+	instance   string
+	key        string
+	httpClient *http.Client
 }
 
-func TSQueryHTTP(method string) (*http.Response, error) {
-	url := fmt.Sprintf("http://%s/%s/%s", config.Teamspeak.Endpoint, config.Teamspeak.Instance, method)
+func NewClient(endpoint, instance, key string, timeout time.Duration) *Client {
+	return &Client{
+		endpoint: endpoint,
+		instance: instance,
+		key:      key,
+		httpClient: &http.Client{
+			Timeout: timeout,
+		},
+	}
+}
+
+func (c *Client) QueryHTTP(method string) (*http.Response, error) {
+	url := fmt.Sprintf("http://%s/%s/%s", c.endpoint, c.instance, method)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("User-Agent", "iBug.api-ustc/dev")
-	req.Header.Set("X-API-Key", config.Teamspeak.Key)
-	return tshttpClient.Do(req)
+	req.Header.Set("X-API-Key", c.key)
+	return c.httpClient.Do(req)
 }
 
-func TSQuery(method string, body any) error {
-	resp, err := TSQueryHTTP(method)
+func (c *Client) Query(method string, body any) error {
+	resp, err := c.QueryHTTP(method)
 	if err != nil {
 		return err
 	}
@@ -121,25 +139,25 @@ func TSQuery(method string, body any) error {
 	return nil
 }
 
-func TSGetClients() ([]TSClient, error) {
+func (c *Client) GetClients() ([]TSClient, error) {
 	clients := make([]TSClient, 0)
-	err := TSQuery("clientlist", &clients)
+	err := c.Query("clientlist", &clients)
 	if err != nil {
 		return nil, err
 	}
 	return clients, nil
 }
 
-func TSGetChannels() ([]TSChannel, error) {
+func (c *Client) GetChannels() ([]TSChannel, error) {
 	channels := make([]TSChannel, 0)
-	err := TSQuery("channellist", &channels)
+	err := c.Query("channellist", &channels)
 	if err != nil {
 		return nil, err
 	}
 	return channels, nil
 }
 
-type TSStatus struct {
+type Status struct {
 	Time  time.Time `json:"time"`
 	Count int       `json:"count"`
 
@@ -147,14 +165,14 @@ type TSStatus struct {
 	Clients  []TSClient  `json:"clients"`
 }
 
-func GetTeamspeakOnline() (result TSStatus, err error) {
+func (c *Client) GetOnline() (result Status, err error) {
 	result.Time = time.Now().Truncate(time.Second)
 
-	clients, err := TSGetClients()
+	clients, err := c.GetClients()
 	if err != nil {
 		return
 	}
-	channels, err := TSGetChannels()
+	channels, err := c.GetChannels()
 	if err != nil {
 		return
 	}
@@ -185,14 +203,15 @@ func GetTeamspeakOnline() (result TSStatus, err error) {
 	return
 }
 
-func HandleTeamspeakOnline(w http.ResponseWriter, r *http.Request) {
+// ServeHTTP implements the http.Handler interface.
+func (c *Client) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("CF-Connecting-IP") != "" &&
-		!ValidateToken(r.Header.Get("Authorization"), config.UstcTokens) {
+		!common.ValidateToken(r.Header.Get("Authorization"), c.Tokens) {
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}
 
-	result, err := GetTeamspeakOnline()
+	result, err := c.GetOnline()
 	if err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)

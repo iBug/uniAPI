@@ -10,7 +10,9 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"time"
 
+	"github.com/iBug/api-ustc/common"
 	"github.com/iBug/api-ustc/csgo"
 	"github.com/iBug/api-ustc/factorio"
 	"github.com/iBug/api-ustc/ibugauth"
@@ -19,7 +21,22 @@ import (
 	"github.com/iBug/api-ustc/ustc"
 )
 
+type RconConfig struct {
+	ServerAddr string `json:"server"`
+	ServerPort int    `json:"port"`
+	Password   string `json:"password"`
+}
+
+type CsgoConfig struct {
+	RconConfig
+	Api         string `json:"api"`
+	DisableFile string `json:"disable-file"`
+}
+
 type Config struct {
+	Csgo       CsgoConfig                `json:"csgo"`
+	Factorio   RconConfig                `json:"factorio"`
+	Minecraft  RconConfig                `json:"minecraft"`
 	Teamspeak  teamspeak.TeamspeakConfig `json:"teamspeak"`
 	UstcTokens []string                  `json:"ustc-tokens"`
 	WgPubkey   string                    `json:"wg-pubkey"`
@@ -46,7 +63,7 @@ func LoadConfig() error {
 		return err
 	}
 
-	configFile := filepath.Join(homeDir, ".config", "api-ustc.json")
+	configFile := filepath.Join(homeDir, ".config/api-ustc.json")
 	f, err := os.Open(configFile)
 	if err != nil {
 		return err
@@ -76,10 +93,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if csgologAddr != "" {
-		csgo.StartCsgoLogServer(csgologAddr)
-	}
-
 	// Reload config on SIGHUP
 	signalC := make(chan os.Signal, 1)
 	signal.Notify(signalC, syscall.SIGHUP)
@@ -93,13 +106,31 @@ func main() {
 		}
 	}()
 
-	mainMux.HandleFunc("/csgo", csgo.Handle206Csgo)
-	mainMux.HandleFunc("/minecraft", minecraft.Handle206Minecraft)
-	mainMux.HandleFunc("/factorio", factorio.Handle206Factorio)
-	mainMux.HandleFunc("/teamspeak", teamspeak.HandleTeamspeakOnline)
+	csgoClient := csgo.NewClient(config.Csgo.ServerAddr, config.Csgo.ServerPort, config.Csgo.Password, 100*time.Millisecond)
+	csgoClient.SilentFunc = func() bool {
+		_, err := os.Stat(config.Csgo.DisableFile)
+		return err == nil
+	}
+	if csgologAddr != "" {
+		csgoClient.StartLogServer(csgologAddr)
+	}
+
+	facClient := factorio.NewClient(config.Factorio.ServerAddr, config.Factorio.ServerPort, config.Factorio.Password, 100*time.Millisecond)
+
+	minecraftClient := minecraft.NewClient(config.Minecraft.ServerAddr, config.Minecraft.ServerPort, config.Minecraft.Password, 10*time.Millisecond)
+
+	tsClient := teamspeak.NewClient(config.Teamspeak.Endpoint, config.Teamspeak.Instance, config.Teamspeak.Key, 500*time.Millisecond)
+	tsHandler := &common.TokenProtectedHandler{tsClient, config.UstcTokens}
+
+	ustcHandler := &common.TokenProtectedHandler{http.HandlerFunc(ustc.HandleUstcId), config.UstcTokens}
+
+	mainMux.Handle("/csgo", csgoClient)
+	mainMux.Handle("/factorio", facClient)
+	mainMux.Handle("/minecraft", minecraftClient)
+	mainMux.Handle("/teamspeak", tsHandler)
 	mainMux.HandleFunc("/206ip", Handle206IP)
 	mainMux.HandleFunc("/ibug-auth", ibugauth.HandleIBugAuth)
-	mainMux.HandleFunc("/ustc-id", ustc.HandleUstcId)
+	mainMux.Handle("/ustc-id", ustcHandler)
 	mainMux.HandleFunc("/robots.txt", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
 		w.WriteHeader(http.StatusOK)

@@ -13,28 +13,36 @@ import (
 	rcon "github.com/forewing/csgo-rcon"
 )
 
-type MinecraftStatus struct {
+type Status struct {
 	Time     time.Time `json:"time"`
 	Count    int       `json:"count"`
 	MaxCount int       `json:"max_count"`
 	Players  []string  `json:"players"`
 }
 
-const (
-	MC_SERVER_ADDR = "192.168.3.2"
-	MC_RCON_PORT   = 25575
-	MC_RCON_PASS   = "taokystrong"
-)
+type Client struct {
+	ServerAddr string
+	ServerPort int
+	Password   string
+
+	rcon *rcon.Client
+}
 
 var RE_MC_LIST = *regexp.MustCompile(`^There are (\d+) of a max of (\d+) players online: `)
 
-var (
-	mcRcon = rcon.New(fmt.Sprintf("%s:%d", MC_SERVER_ADDR, MC_RCON_PORT), MC_RCON_PASS, time.Millisecond*10)
-)
+func NewClient(serverAddr string, serverPort int, password string, timeout time.Duration) *Client {
+	c := &Client{
+		ServerAddr: serverAddr,
+		ServerPort: serverPort,
+		Password:   password,
+	}
+	c.rcon = rcon.New(fmt.Sprintf("%s:%d", c.ServerAddr, c.ServerPort), c.Password, timeout)
+	return c
+}
 
-func GetMinecraftStatus() (MinecraftStatus, error) {
-	status := MinecraftStatus{}
-	msg, err := mcRcon.Execute("list")
+func (c *Client) GetStatus() (Status, error) {
+	status := Status{}
+	msg, err := c.rcon.Execute("list")
 	if err != nil {
 		return status, err
 	}
@@ -49,9 +57,10 @@ func GetMinecraftStatus() (MinecraftStatus, error) {
 	return status, nil
 }
 
-func Handle206Minecraft(w http.ResponseWriter, r *http.Request) {
+// ServeHTTP implements the http.Handler interface.
+func (c *Client) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	status, err := GetMinecraftStatus()
+	status, err := c.GetStatus()
 	if err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)

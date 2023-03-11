@@ -12,23 +12,31 @@ import (
 	rcon "github.com/forewing/csgo-rcon"
 )
 
-type FactorioStatus struct {
+type Status struct {
 	Time    time.Time `json:"time"`
 	Players []string  `json:"players"`
 }
 
-const (
-	FAC_SERVER_ADDR = "10.255.0.9"
-	FAC_RCON_PORT   = 34197
-	FAC_RCON_PASS   = "ohmy206rcon"
-)
+type Client struct {
+	ServerAddr string
+	ServerPort int
+	Password   string
 
-var (
-	facRcon = rcon.New(fmt.Sprintf("%s:%d", FAC_SERVER_ADDR, FAC_RCON_PORT), FAC_RCON_PASS, time.Millisecond*100)
-)
+	rcon *rcon.Client
+}
 
-func GetFactorioStatus() (status FactorioStatus, err error) {
-	response, err := facRcon.Execute("/players online")
+func NewClient(serverAddr string, serverPort int, password string, timeout time.Duration) *Client {
+	c := &Client{
+		ServerAddr: serverAddr,
+		ServerPort: serverPort,
+		Password:   password,
+	}
+	c.rcon = rcon.New(fmt.Sprintf("%s:%d", c.ServerAddr, c.ServerPort), c.Password, timeout)
+	return c
+}
+
+func (c *Client) GetStatus() (status Status, err error) {
+	response, err := c.rcon.Execute("/players online")
 	if err != nil {
 		return
 	}
@@ -47,9 +55,10 @@ func GetFactorioStatus() (status FactorioStatus, err error) {
 	return
 }
 
-func Handle206Factorio(w http.ResponseWriter, r *http.Request) {
+// ServeHTTP implements the http.Handler interface.
+func (c *Client) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	status, err := GetFactorioStatus()
+	status, err := c.GetStatus()
 	if err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)

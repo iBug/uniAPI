@@ -7,7 +7,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"strings"
 	"time"
 )
 
@@ -19,24 +18,6 @@ type ReaderInfo struct {
 	Name    string   `xml:"name" json:"name"`
 	Type    string   `xml:"type" json:"type"`
 	Email   string   `xml:"email" json:"email"`
-}
-
-func ValidateToken(header string, tokens []string) bool {
-	parts := strings.Fields(header)
-	if len(parts) == 0 || len(parts) > 2 {
-		return false
-	}
-	token := parts[0]
-	switch strings.ToLower(parts[0]) {
-	case "bearer", "token":
-		token = parts[1]
-	}
-	for _, t := range tokens {
-		if token == t {
-			return true
-		}
-	}
-	return false
 }
 
 var (
@@ -58,12 +39,6 @@ var (
 )
 
 func HandleUstcId(w http.ResponseWriter, r *http.Request) {
-	if r.Header.Get("CF-Connecting-IP") != "" &&
-		!ValidateToken(r.Header.Get("Authorization"), config.UstcTokens) {
-		w.WriteHeader(http.StatusForbidden)
-		return
-	}
-
 	id := r.URL.Query().Get("id")
 	if id == "" {
 		log.Print("Missing 'id' parameter")
