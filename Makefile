@@ -1,3 +1,4 @@
+SRCS := $(shell find . -name "*.go" -type f) go.mod go.sum
 BIN := api-ustc
 INSTALL := $(HOME)/.local/bin/$(BIN)
 SERVICE := $(BIN).service
@@ -11,7 +12,7 @@ SYSTEMCTL_COMMANDS := start stop restart status reload
 
 all: $(BIN) install
 
-$(BIN): $(wildcard *.go) go.sum
+$(BIN): $(SRCS)
 	go build $(GOFLAGS) -o "$@"
 
 install: $(INSTALL)

@@ -8,8 +8,6 @@ import (
 	"sort"
 	"strconv"
 	"time"
-
-	"github.com/iBug/api-ustc/common"
 )
 
 type TeamspeakConfig struct {
@@ -94,8 +92,6 @@ type TSClientInfo struct {
 }
 
 type Client struct {
-	Tokens []string
-
 	endpoint   string
 	instance   string
 	key        string
@@ -205,12 +201,6 @@ func (c *Client) GetOnline() (result Status, err error) {
 
 // ServeHTTP implements the http.Handler interface.
 func (c *Client) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.Header.Get("CF-Connecting-IP") != "" &&
-		!common.ValidateToken(r.Header.Get("Authorization"), c.Tokens) {
-		w.WriteHeader(http.StatusForbidden)
-		return
-	}
-
 	result, err := c.GetOnline()
 	if err != nil {
 		log.Println(err)

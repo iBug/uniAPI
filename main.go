@@ -93,19 +93,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Reload config on SIGHUP
-	signalC := make(chan os.Signal, 1)
-	signal.Notify(signalC, syscall.SIGHUP)
-	go func() {
-		for range signalC {
-			if err := LoadConfig(); err != nil {
-				log.Printf("Error reloading config: %v", err)
-			} else {
-				log.Printf("Config reloaded!")
-			}
-		}
-	}()
-
 	csgoClient := csgo.NewClient(config.Csgo.ServerAddr, config.Csgo.ServerPort, config.Csgo.Password, 100*time.Millisecond)
 	csgoClient.SilentFunc = func() bool {
 		_, err := os.Stat(config.Csgo.DisableFile)
@@ -123,6 +110,21 @@ func main() {
 	tsHandler := &common.TokenProtectedHandler{tsClient, config.UstcTokens}
 
 	ustcHandler := &common.TokenProtectedHandler{http.HandlerFunc(ustc.HandleUstcId), config.UstcTokens}
+
+	// Reload config on SIGHUP
+	signalC := make(chan os.Signal, 1)
+	signal.Notify(signalC, syscall.SIGHUP)
+	go func() {
+		for range signalC {
+			if err := LoadConfig(); err != nil {
+				log.Printf("Error reloading config: %v", err)
+			} else {
+				tsHandler.Tokens = config.UstcTokens
+				ustcHandler.Tokens = config.UstcTokens
+				log.Printf("Config reloaded!")
+			}
+		}
+	}()
 
 	mainMux.Handle("/csgo", csgoClient)
 	mainMux.Handle("/factorio", facClient)
