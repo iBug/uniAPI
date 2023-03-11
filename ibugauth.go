@@ -107,7 +107,7 @@ func HandleIBugAuth(w http.ResponseWriter, r *http.Request) {
 	}
 	if info.AuthenticationSuccess != nil {
 		res := info.AuthenticationSuccess
-		log.Printf("CAS login by %q from %q\n", res.User, res.Attributes.LoginIP)
+		log.Printf("CAS login by %s (%s) from %q\n", res.User, res.Attributes.Name, res.Attributes.LoginIP)
 	} else if info.AuthenticationFailure != nil {
 		w.WriteHeader(http.StatusForbidden)
 		return

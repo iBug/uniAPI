@@ -100,8 +100,15 @@ func GetCsgoStatus(useCache bool) (CsgoStatus, error) {
 	}
 
 	msg, err := csgoRcon.Execute("cvarlist game_; status")
-	if err != nil {
-		return CsgoStatus{}, err
+	retries := 0
+	for err != nil {
+		retries++
+		log.Printf("GetCsgoStatus rcon error %d: %v", retries, err)
+		if retries >= 3 {
+			return CsgoStatus{}, fmt.Errorf("GetCsgoStatus error: %w", err)
+		}
+		time.Sleep(1 * time.Second)
+		msg, err = csgoRcon.Execute("cvarlist game_; status")
 	}
 
 	status := CsgoStatus{Players: make([]string, 0, 10)}
@@ -274,7 +281,7 @@ func CsgoLogServer(listenAddr string) error {
 	serverAddr := net.ParseIP(CSGO_SERVER_ADDR)
 	listenUDPAddr, err := net.ResolveUDPAddr("udp", listenAddr)
 	if err != nil {
-		return err
+		return fmt.Errorf("ResolveUDPAddr %#v: %w", listenAddr, err)
 	}
 
 	ln, err := net.ListenUDP("udp", listenUDPAddr)
