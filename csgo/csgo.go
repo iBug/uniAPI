@@ -96,16 +96,6 @@ func (c *Client) Init() {
 	c.rcon = rcon.New(fmt.Sprintf("%s:%d", c.ServerAddr, c.ServerPort), c.Password, c.Timeout)
 }
 
-const (
-	CSGO_RCON_PASS    = "pointeeserver"
-	CSGO_SERVER_ADDR  = "10.255.0.9"
-	CSGO_SERVER_PORT  = 27015
-	CSGO_ONLINE_API   = "https://api.ibugone.com/gh/206steam"
-	CSGO_DISABLE_FILE = "/tmp/noonline"
-
-	CSGO_CACHE_TIME = 10 * time.Second
-)
-
 func (s *Status) ParseGameMode() string {
 	// Source: https://totalcsgo.com/command/gamemode
 	id := s.cvar_GameType*100 + s.cvar_GameMode
@@ -116,7 +106,7 @@ func (s *Status) ParseGameMode() string {
 }
 
 func (c *Client) GetStatus(useCache bool) (Status, error) {
-	if useCache && time.Since(c.savedStatus.Time) < CSGO_CACHE_TIME {
+	if useCache && time.Since(c.savedStatus.Time) < c.CacheTime {
 		return c.savedStatus, nil
 	}
 
