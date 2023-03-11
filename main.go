@@ -10,12 +10,19 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
+
+	"github.com/iBug/api-ustc/csgo"
+	"github.com/iBug/api-ustc/factorio"
+	"github.com/iBug/api-ustc/ibugauth"
+	"github.com/iBug/api-ustc/minecraft"
+	"github.com/iBug/api-ustc/teamspeak"
+	"github.com/iBug/api-ustc/ustc"
 )
 
 type Config struct {
-	Teamspeak  TeamspeakConfig `json:"teamspeak"`
-	UstcTokens []string        `json:"ustc-tokens"`
-	WgPubkey   string          `json:"wg-pubkey"`
+	Teamspeak  teamspeak.TeamspeakConfig `json:"teamspeak"`
+	UstcTokens []string                  `json:"ustc-tokens"`
+	WgPubkey   string                    `json:"wg-pubkey"`
 }
 
 var (
@@ -70,7 +77,7 @@ func main() {
 	}
 
 	if csgologAddr != "" {
-		StartCsgoLogServer(csgologAddr)
+		csgo.StartCsgoLogServer(csgologAddr)
 	}
 
 	// Reload config on SIGHUP
@@ -86,13 +93,13 @@ func main() {
 		}
 	}()
 
-	mainMux.HandleFunc("/csgo", Handle206Csgo)
-	mainMux.HandleFunc("/minecraft", Handle206Minecraft)
-	mainMux.HandleFunc("/factorio", Handle206Factorio)
-	mainMux.HandleFunc("/teamspeak", HandleTeamspeakOnline)
+	mainMux.HandleFunc("/csgo", csgo.Handle206Csgo)
+	mainMux.HandleFunc("/minecraft", minecraft.Handle206Minecraft)
+	mainMux.HandleFunc("/factorio", factorio.Handle206Factorio)
+	mainMux.HandleFunc("/teamspeak", teamspeak.HandleTeamspeakOnline)
 	mainMux.HandleFunc("/206ip", Handle206IP)
-	mainMux.HandleFunc("/ibug-auth", HandleIBugAuth)
-	mainMux.HandleFunc("/ustc-id", HandleUstcId)
+	mainMux.HandleFunc("/ibug-auth", ibugauth.HandleIBugAuth)
+	mainMux.HandleFunc("/ustc-id", ustc.HandleUstcId)
 	mainMux.HandleFunc("/robots.txt", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
 		w.WriteHeader(http.StatusOK)

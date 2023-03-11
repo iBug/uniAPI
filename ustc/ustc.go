@@ -1,4 +1,4 @@
-package main
+package ustc
 
 import (
 	"encoding/json"

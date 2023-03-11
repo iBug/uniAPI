@@ -1,4 +1,4 @@
-package main
+package ibugauth
 
 import (
 	"encoding/xml"
