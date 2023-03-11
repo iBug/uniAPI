@@ -10,7 +10,6 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
-	"time"
 
 	"github.com/iBug/api-ustc/common"
 	"github.com/iBug/api-ustc/csgo"
@@ -81,23 +80,18 @@ func main() {
 		log.Fatal(err)
 	}
 
-	csgoClient := csgo.NewClient(config.Csgo.ServerAddr, config.Csgo.ServerPort, config.Csgo.Password, 100*time.Millisecond)
-	csgoClient.Api = config.Csgo.Api
-	csgoClient.SilentFunc = func() bool {
-		_, err := os.Stat(config.Csgo.DisableFile)
-		return err == nil
-	}
+	csgoClient := csgo.NewClient(config.Csgo)
 	if csgologAddr != "" {
 		csgoClient.StartLogServer(csgologAddr)
 	}
 
-	facClient := factorio.NewClient(config.Factorio.ServerAddr, config.Factorio.ServerPort, config.Factorio.Password, 100*time.Millisecond)
+	facClient := factorio.NewClient(config.Factorio)
 
-	minecraftClient := minecraft.NewClient(config.Minecraft.ServerAddr, config.Minecraft.ServerPort, config.Minecraft.Password, 10*time.Millisecond)
+	minecraftClient := minecraft.NewClient(config.Minecraft)
 
-	trClient := terraria.NewClient(config.Terraria.Host, config.Terraria.Container)
+	trClient := terraria.NewClient(config.Terraria)
 
-	tsClient := teamspeak.NewClient(config.Teamspeak.Endpoint, config.Teamspeak.Instance, config.Teamspeak.Key, 500*time.Millisecond)
+	tsClient := teamspeak.NewClient(config.Teamspeak)
 	tsHandler := &common.TokenProtectedHandler{tsClient, config.UstcTokens}
 
 	ustcHandler := &common.TokenProtectedHandler{http.HandlerFunc(ustc.HandleUstcId), config.UstcTokens}

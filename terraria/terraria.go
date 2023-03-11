@@ -37,12 +37,12 @@ type Client struct {
 	docker    *client.Client
 }
 
-func NewClient(host, container string) *Client {
+func NewClient(config Config) *Client {
 	docker, _ := client.NewClientWithOpts(
-		client.WithHost(host),
+		client.WithHost(config.Host),
 		client.WithAPIVersionNegotiation(),
 	)
-	return &Client{container: container, docker: docker}
+	return &Client{container: config.Container, docker: docker}
 }
 
 func (c *Client) GetStatus() (Status, error) {

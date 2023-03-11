@@ -2,7 +2,6 @@ package minecraft
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"regexp"
@@ -26,22 +25,15 @@ type Config struct {
 }
 
 type Client struct {
-	ServerAddr string
-	ServerPort int
-	Password   string
-
 	rcon *rcon.Client
 }
 
 var RE_MC_LIST = *regexp.MustCompile(`^There are (\d+) of a max of (\d+) players online: `)
 
-func NewClient(serverAddr string, serverPort int, password string, timeout time.Duration) *Client {
+func NewClient(config Config) *Client {
 	c := &Client{
-		ServerAddr: serverAddr,
-		ServerPort: serverPort,
-		Password:   password,
+		rcon: common.RconClient(config.RconConfig),
 	}
-	c.rcon = rcon.New(fmt.Sprintf("%s:%d", c.ServerAddr, c.ServerPort), c.Password, timeout)
 	return c
 }
 

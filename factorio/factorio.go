@@ -3,7 +3,6 @@ package factorio
 import (
 	"bufio"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -23,20 +22,13 @@ type Config struct {
 }
 
 type Client struct {
-	ServerAddr string
-	ServerPort int
-	Password   string
-
 	rcon *rcon.Client
 }
 
-func NewClient(serverAddr string, serverPort int, password string, timeout time.Duration) *Client {
+func NewClient(config Config) *Client {
 	c := &Client{
-		ServerAddr: serverAddr,
-		ServerPort: serverPort,
-		Password:   password,
+		rcon: common.RconClient(config.RconConfig),
 	}
-	c.rcon = rcon.New(fmt.Sprintf("%s:%d", c.ServerAddr, c.ServerPort), c.Password, timeout)
 	return c
 }
 

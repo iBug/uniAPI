@@ -8,12 +8,15 @@ import (
 	"sort"
 	"strconv"
 	"time"
+
+	"github.com/iBug/api-ustc/common"
 )
 
 type Config struct {
 	Key      string `json:"key"`
 	Instance string `json:"instance"`
 	Endpoint string `json:"endpoint"`
+	Timeout  string `json:"timeout"`
 }
 
 type TSQueryResponse struct {
@@ -98,13 +101,13 @@ type Client struct {
 	httpClient *http.Client
 }
 
-func NewClient(endpoint, instance, key string, timeout time.Duration) *Client {
+func NewClient(config Config) *Client {
 	return &Client{
-		endpoint: endpoint,
-		instance: instance,
-		key:      key,
+		endpoint: config.Endpoint,
+		instance: config.Instance,
+		key:      config.Key,
 		httpClient: &http.Client{
-			Timeout: timeout,
+			Timeout: common.ParseDurationDefault(config.Timeout, 1*time.Second),
 		},
 	}
 }

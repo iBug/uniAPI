@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -72,35 +73,37 @@ type Config struct {
 }
 
 type Client struct {
-	ServerAddr string
-	ServerPort int
-	Password   string
-	Timeout    time.Duration
 	Api        string
 	CacheTime  time.Duration
-
 	SilentFunc func() bool
+
+	rcon *rcon.Client
+
+	// For LogServer source validation
+	serverAddr net.IP
+	serverPort int
 
 	savedStatus  Status
 	localState   LocalState
 	localStateMu sync.Mutex
-	rcon         *rcon.Client
 }
 
-func NewClient(serverAddr string, serverPort int, password string, timeout time.Duration) *Client {
+func NewClient(config Config) *Client {
 	c := &Client{
-		ServerAddr: serverAddr,
-		ServerPort: serverPort,
-		Password:   password,
-		Timeout:    timeout,
+		Api:        config.Api,
 		CacheTime:  10 * time.Second,
+		rcon:       common.RconClient(config.RconConfig),
+		serverAddr: net.ParseIP(config.ServerAddr),
+		serverPort: config.ServerPort,
 	}
-	c.Init()
-	return c
-}
 
-func (c *Client) Init() {
-	c.rcon = rcon.New(fmt.Sprintf("%s:%d", c.ServerAddr, c.ServerPort), c.Password, c.Timeout)
+	if config.DisableFile != "" {
+		c.SilentFunc = func() bool {
+			_, err := os.Stat(config.DisableFile)
+			return err == nil
+		}
+	}
+	return c
 }
 
 func (s *Status) ParseGameMode() string {
@@ -299,7 +302,6 @@ func (c *Client) OnlineWorker(ch <-chan string) {
 }
 
 func (c *Client) LogServer(listenAddr string) error {
-	serverAddr := net.ParseIP(c.ServerAddr)
 	listenUDPAddr, err := net.ResolveUDPAddr("udp", listenAddr)
 	if err != nil {
 		return fmt.Errorf("ResolveUDPAddr %#v: %w", listenAddr, err)
@@ -318,7 +320,7 @@ func (c *Client) LogServer(listenAddr string) error {
 			log.Print(err)
 			continue
 		}
-		if !addr.IP.Equal(serverAddr) || addr.Port != c.ServerPort {
+		if !addr.IP.Equal(c.serverAddr) || addr.Port != c.serverPort {
 			log.Printf("Received packet from unexpected address: %s", addr)
 			continue
 		}
