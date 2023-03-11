@@ -99,6 +99,7 @@ func main() {
 	}
 
 	csgoClient := csgo.NewClient(config.Csgo.ServerAddr, config.Csgo.ServerPort, config.Csgo.Password, 100*time.Millisecond)
+	csgoClient.Api = config.Csgo.Api
 	csgoClient.SilentFunc = func() bool {
 		_, err := os.Stat(config.Csgo.DisableFile)
 		return err == nil
