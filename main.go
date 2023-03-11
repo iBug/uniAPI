@@ -18,6 +18,7 @@ import (
 	"github.com/iBug/api-ustc/ibugauth"
 	"github.com/iBug/api-ustc/minecraft"
 	"github.com/iBug/api-ustc/teamspeak"
+	"github.com/iBug/api-ustc/terraria"
 	"github.com/iBug/api-ustc/ustc"
 )
 
@@ -33,10 +34,16 @@ type CsgoConfig struct {
 	DisableFile string `json:"disable-file"`
 }
 
+type TerrariaConfig struct {
+	Host      string `json:"host"`
+	Container string `json:"container"`
+}
+
 type Config struct {
 	Csgo       CsgoConfig                `json:"csgo"`
 	Factorio   RconConfig                `json:"factorio"`
 	Minecraft  RconConfig                `json:"minecraft"`
+	Terraria   TerrariaConfig            `json:"terraria"`
 	Teamspeak  teamspeak.TeamspeakConfig `json:"teamspeak"`
 	UstcTokens []string                  `json:"ustc-tokens"`
 	WgPubkey   string                    `json:"wg-pubkey"`
@@ -77,8 +84,6 @@ func LoadConfig() error {
 	return nil
 }
 
-var mainMux = http.NewServeMux()
-
 func main() {
 	flag.StringVar(&listenAddr, "l", ":8000", "listen address")
 	flag.StringVar(&csgologAddr, "csgolog", "", "CS:GO log listen address")
@@ -106,6 +111,8 @@ func main() {
 
 	minecraftClient := minecraft.NewClient(config.Minecraft.ServerAddr, config.Minecraft.ServerPort, config.Minecraft.Password, 10*time.Millisecond)
 
+	trClient := terraria.NewClient(config.Terraria.Host, config.Terraria.Container)
+
 	tsClient := teamspeak.NewClient(config.Teamspeak.Endpoint, config.Teamspeak.Instance, config.Teamspeak.Key, 500*time.Millisecond)
 	tsHandler := &common.TokenProtectedHandler{tsClient, config.UstcTokens}
 
@@ -126,9 +133,11 @@ func main() {
 		}
 	}()
 
+	mainMux := http.NewServeMux()
 	mainMux.Handle("/csgo", csgoClient)
 	mainMux.Handle("/factorio", facClient)
 	mainMux.Handle("/minecraft", minecraftClient)
+	mainMux.Handle("/terraria", trClient)
 	mainMux.Handle("/teamspeak", tsHandler)
 	mainMux.HandleFunc("/206ip", Handle206IP)
 	mainMux.HandleFunc("/ibug-auth", ibugauth.HandleIBugAuth)

@@ -1,0 +1,14 @@
+[Unit]
+Description=USTC API server
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+WorkingDirectory=/tmp
+ExecStart=%h/.local/bin/api-ustc -l 127.0.1.1:1024 -csgolog 10.255.0.1:8964
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=1
+
+[Install]
+WantedBy=default.target
