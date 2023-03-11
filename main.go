@@ -22,31 +22,14 @@ import (
 	"github.com/iBug/api-ustc/ustc"
 )
 
-type RconConfig struct {
-	ServerAddr string `json:"server"`
-	ServerPort int    `json:"port"`
-	Password   string `json:"password"`
-}
-
-type CsgoConfig struct {
-	RconConfig
-	Api         string `json:"api"`
-	DisableFile string `json:"disable-file"`
-}
-
-type TerrariaConfig struct {
-	Host      string `json:"host"`
-	Container string `json:"container"`
-}
-
 type Config struct {
-	Csgo       CsgoConfig                `json:"csgo"`
-	Factorio   RconConfig                `json:"factorio"`
-	Minecraft  RconConfig                `json:"minecraft"`
-	Terraria   TerrariaConfig            `json:"terraria"`
-	Teamspeak  teamspeak.TeamspeakConfig `json:"teamspeak"`
-	UstcTokens []string                  `json:"ustc-tokens"`
-	WgPubkey   string                    `json:"wg-pubkey"`
+	Csgo       csgo.Config      `json:"csgo"`
+	Factorio   factorio.Config  `json:"factorio"`
+	Minecraft  minecraft.Config `json:"minecraft"`
+	Terraria   terraria.Config  `json:"terraria"`
+	Teamspeak  teamspeak.Config `json:"teamspeak"`
+	UstcTokens []string         `json:"ustc-tokens"`
+	WgPubkey   string           `json:"wg-pubkey"`
 }
 
 var (

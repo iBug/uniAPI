@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-type TeamspeakConfig struct {
+type Config struct {
 	Key      string `json:"key"`
 	Instance string `json:"instance"`
 	Endpoint string `json:"endpoint"`

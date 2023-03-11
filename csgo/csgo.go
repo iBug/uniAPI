@@ -14,6 +14,7 @@ import (
 	"time"
 
 	rcon "github.com/forewing/csgo-rcon"
+	"github.com/iBug/api-ustc/common"
 )
 
 type LocalState struct {
@@ -62,6 +63,12 @@ var GAME_MODE_S = map[int]string{
 	400: "cooperative",
 	500: "skirmish",
 	600: "danger zone",
+}
+
+type Config struct {
+	common.RconConfig
+	Api         string `json:"api"`
+	DisableFile string `json:"disable-file"`
 }
 
 type Client struct {

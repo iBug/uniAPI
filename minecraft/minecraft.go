@@ -11,6 +11,7 @@ import (
 	"time"
 
 	rcon "github.com/forewing/csgo-rcon"
+	"github.com/iBug/api-ustc/common"
 )
 
 type Status struct {
@@ -18,6 +19,10 @@ type Status struct {
 	Count    int       `json:"count"`
 	MaxCount int       `json:"max_count"`
 	Players  []string  `json:"players"`
+}
+
+type Config struct {
+	common.RconConfig
 }
 
 type Client struct {

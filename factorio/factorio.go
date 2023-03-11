@@ -10,11 +10,16 @@ import (
 	"time"
 
 	rcon "github.com/forewing/csgo-rcon"
+	"github.com/iBug/api-ustc/common"
 )
 
 type Status struct {
 	Time    time.Time `json:"time"`
 	Players []string  `json:"players"`
+}
+
+type Config struct {
+	common.RconConfig
 }
 
 type Client struct {

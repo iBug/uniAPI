@@ -27,6 +27,11 @@ type Status struct {
 	Time    time.Time `json:"time"`
 }
 
+type Config struct {
+	Host      string `json:"host"`
+	Container string `json:"container"`
+}
+
 type Client struct {
 	container string
 	docker    *client.Client
