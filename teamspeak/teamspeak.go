@@ -126,10 +126,7 @@ func (c *Client) QueryHTTP(method string) (*http.Response, error) {
 func (c *Client) Query(method string, body any) error {
 	retries := 0
 	resp, err := c.QueryHTTP(method)
-	for {
-		if err == nil {
-			break
-		}
+	for err != nil {
 		retries++
 		log.Printf("Teamspeak query error %d: %v", retries, err)
 		if retries >= 3 {
