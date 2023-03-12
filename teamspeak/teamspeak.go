@@ -38,9 +38,9 @@ type TSChannel struct {
 
 // Only to work around stupid TeamSpeak API
 // http://choly.ca/post/go-json-marshalling/
-type TSChannelA TSChannel
-type TSChannelS struct {
-	*TSChannelA
+type tsChannelA TSChannel
+type tsChannelS struct {
+	*tsChannelA
 
 	ID           string `json:"cid"`
 	Order        string `json:"channel_order"`
@@ -49,7 +49,7 @@ type TSChannelS struct {
 }
 
 func (c *TSChannel) UnmarshalJSON(data []byte) error {
-	aux := &TSChannelS{TSChannelA: (*TSChannelA)(c)}
+	aux := &tsChannelS{tsChannelA: (*tsChannelA)(c)}
 	if err := json.Unmarshal(data, aux); err != nil {
 		return err
 	}
@@ -67,9 +67,9 @@ type TSClient struct {
 	Nickname   string `json:"client_nickname"`
 	Type       int    `json:"client_type"`
 }
-type TSClientA TSClient
-type TSClientS struct {
-	*TSClientA
+type tsClientA TSClient
+type tsClientS struct {
+	*tsClientA
 
 	ChannelID  string `json:"cid"`
 	ID         string `json:"clid"`
@@ -78,7 +78,7 @@ type TSClientS struct {
 }
 
 func (c *TSClient) UnmarshalJSON(data []byte) error {
-	aux := &TSClientS{TSClientA: (*TSClientA)(c)}
+	aux := &tsClientS{tsClientA: (*tsClientA)(c)}
 	if err := json.Unmarshal(data, aux); err != nil {
 		return err
 	}
