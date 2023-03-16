@@ -21,21 +21,20 @@ type ReaderInfo struct {
 }
 
 var (
-	ustcTimeout = 3 * time.Second
-	ustcDialer  = &net.Dialer{
-		Timeout:   ustcTimeout,
-		KeepAlive: ustcTimeout,
+	httpTimeout = 3 * time.Second
+	httpDialer  = &net.Dialer{
+		Timeout:   httpTimeout,
+		KeepAlive: httpTimeout,
 		LocalAddr: &net.TCPAddr{IP: net.ParseIP("10.255.1.3")},
 	}
-	ustcTransport = &http.Transport{
-		Proxy:                 http.ProxyFromEnvironment,
-		DialContext:           ustcDialer.DialContext,
+	httpTransport = &http.Transport{
+		DialContext:           httpDialer.DialContext,
 		MaxIdleConns:          3,
-		IdleConnTimeout:       10 * ustcTimeout,
-		TLSHandshakeTimeout:   ustcTimeout,
+		IdleConnTimeout:       10 * httpTimeout,
+		TLSHandshakeTimeout:   httpTimeout,
 		ExpectContinueTimeout: 1 * time.Second,
 	}
-	ustcClient = &http.Client{Transport: ustcTransport, Timeout: ustcTimeout}
+	httpClient = &http.Client{Transport: httpTransport, Timeout: httpTimeout}
 )
 
 func HandleUstcId(w http.ResponseWriter, r *http.Request) {
@@ -57,7 +56,7 @@ func HandleUstcId(w http.ResponseWriter, r *http.Request) {
 	q.Add("id", id)
 	req.URL.RawQuery = q.Encode()
 
-	res, err := ustcClient.Do(req)
+	res, err := httpClient.Do(req)
 	if err != nil {
 		log.Print(err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -74,7 +73,7 @@ func HandleUstcId(w http.ResponseWriter, r *http.Request) {
 	var info ReaderInfo
 	err = xml.NewDecoder(res.Body).Decode(&info)
 	if err != nil {
-		log.Print(err)
+		log.Printf("XML decode error: %v\n", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

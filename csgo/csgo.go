@@ -46,12 +46,12 @@ type OnlinePayload struct {
 	Count  int    `json:"count"`
 }
 
-var RE_PLAYERS = regexp.MustCompile(`(\d+) humans?, (\d+) bots?`)
-var RE_CONNECTED = regexp.MustCompile(`"([^<]+)<(\d+)><([^>]+)><([^>]*)>" connected,`)
-var RE_DISCONNECTED = regexp.MustCompile(`"([^<]+)<(\d+)><([^>]+)><([^>]*)>" disconnected \(`)
-var RE_MATCH_STATUS = regexp.MustCompile(`MatchStatus: Score: (\d+):(\d+) on map "(\w+)" RoundsPlayed: (\d+)`)
-var RE_GAME_OVER = regexp.MustCompile(`^(Game Over:)`)
-var GAME_MODE_S = map[int]string{
+var RePlayers = regexp.MustCompile(`(\d+) humans?, (\d+) bots?`)
+var ReConnected = regexp.MustCompile(`"([^<]+)<(\d+)><([^>]+)><([^>]*)>" connected,`)
+var ReDisconnected = regexp.MustCompile(`"([^<]+)<(\d+)><([^>]+)><([^>]*)>" disconnected \(`)
+var ReMatchStatus = regexp.MustCompile(`MatchStatus: Score: (\d+):(\d+) on map "(\w+)" RoundsPlayed: (\d+)`)
+var ReGameOver = regexp.MustCompile(`^(Game Over:)`)
+var GameModeMap = map[int]string{
 	0:   "casual",
 	1:   "competitive",
 	2:   "scrim competitive",
@@ -109,7 +109,7 @@ func NewClient(config Config) *Client {
 func (s *Status) ParseGameMode() string {
 	// Source: https://totalcsgo.com/command/gamemode
 	id := s.cvar_GameType*100 + s.cvar_GameMode
-	if str, ok := GAME_MODE_S[id]; ok {
+	if str, ok := GameModeMap[id]; ok {
 		return str
 	}
 	return "unknown"
@@ -149,7 +149,7 @@ func (c *Client) GetStatus(useCache bool) (Status, error) {
 			case "map":
 				status.Map = value
 			case "players":
-				matches := RE_PLAYERS.FindStringSubmatch(value)
+				matches := RePlayers.FindStringSubmatch(value)
 				status.PlayerCount, _ = strconv.Atoi(matches[1])
 				status.BotCount, _ = strconv.Atoi(matches[2])
 			case "game_mode":
@@ -235,7 +235,7 @@ func (c *Client) SendOnlineNotice(action, name string, count int) error {
 
 func (c *Client) HandleLogMessage(s string) {
 	// Check online
-	matches := RE_CONNECTED.FindStringSubmatch(s)
+	matches := ReConnected.FindStringSubmatch(s)
 	if len(matches) >= 5 && matches[3] != "BOT" {
 		log.Printf("%v connected\n", matches[1])
 		status, err := c.GetStatus(false)
@@ -254,7 +254,7 @@ func (c *Client) HandleLogMessage(s string) {
 	}
 
 	// Check offline
-	matches = RE_DISCONNECTED.FindStringSubmatch(s)
+	matches = ReDisconnected.FindStringSubmatch(s)
 	if len(matches) >= 5 && matches[3] != "BOT" {
 		log.Printf("%v disconnected\n", matches[1])
 		status, err := c.GetStatus(false)
@@ -273,7 +273,7 @@ func (c *Client) HandleLogMessage(s string) {
 	}
 
 	// Check game state
-	matches = RE_MATCH_STATUS.FindStringSubmatch(s)
+	matches = ReMatchStatus.FindStringSubmatch(s)
 	if len(matches) >= 4 {
 		c.localStateMu.Lock()
 		c.localState.CTScore, _ = strconv.Atoi(matches[1])
@@ -286,7 +286,7 @@ func (c *Client) HandleLogMessage(s string) {
 	}
 
 	// Check game over
-	matches = RE_GAME_OVER.FindStringSubmatch(s)
+	matches = ReGameOver.FindStringSubmatch(s)
 	if len(matches) > 0 {
 		c.localStateMu.Lock()
 		c.localState.GameOngoing = false

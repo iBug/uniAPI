@@ -28,7 +28,7 @@ type Client struct {
 	rcon *rcon.Client
 }
 
-var RE_MC_LIST = *regexp.MustCompile(`^There are (\d+) of a max of (\d+) players online: `)
+var RePlayerList = *regexp.MustCompile(`^There are (\d+) of a max of (\d+) players online: `)
 
 func NewClient(config Config) *Client {
 	c := &Client{
@@ -43,7 +43,7 @@ func (c *Client) GetStatus() (Status, error) {
 	if err != nil {
 		return status, err
 	}
-	m := RE_MC_LIST.FindStringSubmatch(msg)
+	m := RePlayerList.FindStringSubmatch(msg)
 	status.Count, _ = strconv.Atoi(m[1])
 	status.MaxCount, _ = strconv.Atoi(m[2])
 	playersStr := strings.SplitN(msg, ": ", 2)[1]
