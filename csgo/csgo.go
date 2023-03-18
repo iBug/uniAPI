@@ -117,11 +117,7 @@ func (s *Status) ParseGameMode() string {
 	return "unknown"
 }
 
-func (c *Client) GetStatus(useCache bool) (Status, error) {
-	if useCache && time.Since(c.savedStatus.Time) < c.CacheTime {
-		return c.savedStatus, nil
-	}
-
+func (c *Client) GetStatus() (Status, error) {
 	msg, err := c.rcon.Execute("cvarlist game_; status")
 	retries := 0
 	for err != nil {
@@ -182,10 +178,17 @@ func (c *Client) GetStatus(useCache bool) (Status, error) {
 	return status, nil
 }
 
+func (c *Client) GetCachedStatus() (Status, error) {
+	if time.Since(c.savedStatus.Time) < c.CacheTime {
+		return c.savedStatus, nil
+	}
+	return c.GetStatus()
+}
+
 // ServeHTTP implements the http.Handler interface.
 func (c *Client) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	status, err := c.GetStatus(true)
+	status, err := c.GetStatus()
 	if err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -241,7 +244,7 @@ func (c *Client) handleLogMessage(s string) {
 	matches := ReConnected.FindStringSubmatch(s)
 	if len(matches) >= 5 && matches[3] != "BOT" {
 		log.Printf("CSGO Online: %v connected\n", matches[1])
-		status, err := c.GetStatus(false)
+		status, err := c.GetStatus()
 		if err != nil {
 			log.Print(err)
 			return
@@ -260,7 +263,7 @@ func (c *Client) handleLogMessage(s string) {
 	matches = ReDisconnected.FindStringSubmatch(s)
 	if len(matches) >= 5 && matches[3] != "BOT" {
 		log.Printf("CSGO Online: %v disconnected\n", matches[1])
-		status, err := c.GetStatus(false)
+		status, err := c.GetStatus()
 		if err != nil {
 			log.Print(err)
 			return
