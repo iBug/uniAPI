@@ -237,7 +237,7 @@ func (c *Client) HandleLogMessage(s string) {
 	// Check online
 	matches := ReConnected.FindStringSubmatch(s)
 	if len(matches) >= 5 && matches[3] != "BOT" {
-		log.Printf("%v connected\n", matches[1])
+		log.Printf("CSGO Online: %v connected\n", matches[1])
 		status, err := c.GetStatus(false)
 		if err != nil {
 			log.Print(err)
@@ -256,7 +256,7 @@ func (c *Client) HandleLogMessage(s string) {
 	// Check offline
 	matches = ReDisconnected.FindStringSubmatch(s)
 	if len(matches) >= 5 && matches[3] != "BOT" {
-		log.Printf("%v disconnected\n", matches[1])
+		log.Printf("CSGO Online: %v disconnected\n", matches[1])
 		status, err := c.GetStatus(false)
 		if err != nil {
 			log.Print(err)
