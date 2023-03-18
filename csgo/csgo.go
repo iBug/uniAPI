@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -221,15 +222,16 @@ func (c *Client) SendOnlineNotice(action, name string, count int) error {
 	res, err := http.DefaultClient.Do(req)
 	retry := 0
 	for err != nil {
-		log.Printf("SendOnlineNotice error %d: %v\n", retry, err)
 		retry++
+		log.Printf("SendOnlineNotice error %d: %v\n", retry, err)
 		if retry >= 3 {
 			return err
 		}
 		time.Sleep(1 * time.Second)
 		res, err = http.DefaultClient.Do(req)
 	}
-	defer res.Body.Close()
+	io.Copy(io.Discard, res.Body)
+	res.Body.Close()
 	return nil
 }
 
