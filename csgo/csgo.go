@@ -3,6 +3,7 @@ package csgo
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -235,7 +236,7 @@ func (c *Client) SendOnlineNotice(action, name string, count int) error {
 	return nil
 }
 
-func (c *Client) HandleLogMessage(s string) {
+func (c *Client) handleLogMessage(s string) {
 	// Check online
 	matches := ReConnected.FindStringSubmatch(s)
 	if len(matches) >= 5 && matches[3] != "BOT" {
@@ -297,28 +298,20 @@ func (c *Client) HandleLogMessage(s string) {
 	}
 }
 
-func (c *Client) OnlineWorker(ch <-chan string) {
+func (c *Client) onlineWorker(ch <-chan string) {
 	for s := range ch {
-		c.HandleLogMessage(s)
+		c.handleLogMessage(s)
 	}
 }
 
-func (c *Client) LogServer(listenAddr string) error {
-	listenUDPAddr, err := net.ResolveUDPAddr("udp", listenAddr)
-	if err != nil {
-		return fmt.Errorf("ResolveUDPAddr %#v: %w", listenAddr, err)
-	}
-
-	ln, err := net.ListenUDP("udp", listenUDPAddr)
-	if err != nil {
-		return err
-	}
+func (c *Client) logServer(ln *net.UDPConn, ch chan<- string) error {
 	buf := make([]byte, 4096)
-	ch := make(chan string, 64)
-	go c.OnlineWorker(ch)
 	for {
 		n, addr, err := ln.ReadFromUDP(buf)
-		if err != nil {
+		if errors.Is(err, net.ErrClosed) {
+			log.Print(err)
+			return nil
+		} else if err != nil {
 			log.Print(err)
 			continue
 		}
@@ -335,6 +328,18 @@ func (c *Client) LogServer(listenAddr string) error {
 	}
 }
 
-func (c *Client) StartLogServer(addr string) {
-	go c.LogServer(addr)
+func (c *Client) StartLogServer(listenAddr string) (io.Closer, error) {
+	listenUDPAddr, err := net.ResolveUDPAddr("udp", listenAddr)
+	if err != nil {
+		return nil, fmt.Errorf("ResolveUDPAddr %#v: %w", listenAddr, err)
+	}
+
+	ln, err := net.ListenUDP("udp", listenUDPAddr)
+	if err != nil {
+		return nil, err
+	}
+	ch := make(chan string, 64)
+	go c.onlineWorker(ch)
+	go c.logServer(ln, ch)
+	return ln, nil
 }
