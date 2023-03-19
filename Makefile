@@ -3,8 +3,8 @@ BIN := api-ustc
 INSTALL := $(HOME)/.local/bin/$(BIN)
 SERVICE := $(BIN).service
 
-GOFLAGS := -compiler=gccgo -gccgoflags='-s -w'
-#GOFLAGS =
+#GOFLAGS := -compiler=gccgo -gccgoflags='-s -w'
+GOFLAGS =
 
 SYSTEMCTL_COMMANDS := start stop restart status reload
 JOURNALCTL_COMMANDS := log logs

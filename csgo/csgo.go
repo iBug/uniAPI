@@ -10,7 +10,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -48,11 +47,6 @@ type OnlinePayload struct {
 	Count  int    `json:"count"`
 }
 
-var RePlayers = regexp.MustCompile(`(\d+) humans?, (\d+) bots?`)
-var ReConnected = regexp.MustCompile(`"([^<]+)<(\d+)><([^>]+)><([^>]*)>" connected,`)
-var ReDisconnected = regexp.MustCompile(`"([^<]+)<(\d+)><([^>]+)><([^>]*)>" disconnected \(`)
-var ReMatchStatus = regexp.MustCompile(`MatchStatus: Score: (\d+):(\d+) on map "(\w+)" RoundsPlayed: (\d+)`)
-var ReGameOver = regexp.MustCompile(`^(Game Over:)`)
 var GameModeMap = map[int]string{
 	0:   "casual",
 	1:   "competitive",
