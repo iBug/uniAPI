@@ -7,8 +7,9 @@ GOFLAGS := -compiler=gccgo -gccgoflags='-s -w'
 #GOFLAGS =
 
 SYSTEMCTL_COMMANDS := start stop restart status reload
+JOURNALCTL_COMMANDS := log logs
 
-.PHONY: all $(SYSTEMCTL_COMMANDS) logs
+.PHONY: all $(SYSTEMCTL_COMMANDS) $(JOURNALCTL_COMMANDS)
 
 all: $(BIN) install
 
@@ -23,5 +24,5 @@ $(INSTALL): $(BIN)
 $(SYSTEMCTL_COMMANDS): %:
 	systemctl --user $@ $(SERVICE)
 
-logs:
+$(JOURNALCTL_COMMANDS): %:
 	journalctl --user -eu $(SERVICE)
