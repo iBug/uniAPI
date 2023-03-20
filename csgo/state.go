@@ -47,6 +47,7 @@ func (s *LocalState) JoinTeam(player, oldTeam, newTeam string) {
 		}
 	}
 
+	players = nil
 	switch newTeam {
 	case teamCT:
 		players = &s.CT.Players
