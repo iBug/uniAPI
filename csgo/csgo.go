@@ -19,14 +19,6 @@ import (
 	"github.com/iBug/api-ustc/common"
 )
 
-type LocalState struct {
-	CTScore      int `json:"ct_score"`
-	TScore       int `json:"t_score"`
-	Map          string
-	RoundsPlayed int  `json:"rounds_played"`
-	GameOngoing  bool `json:"game_ongoing"`
-}
-
 type Status struct {
 	Time        time.Time `json:"time"`
 	Map         string    `json:"map"`
@@ -257,6 +249,7 @@ func (c *Client) handleLogMessage(s string) {
 	matches = ReDisconnected.FindStringSubmatch(s)
 	if len(matches) >= 5 && matches[3] != "BOT" {
 		log.Printf("CSGO Online: %v disconnected\n", matches[1])
+		c.localState.RemovePlayer(matches[1])
 		status, err := c.GetStatus()
 		if err != nil {
 			log.Print(err)
@@ -272,12 +265,26 @@ func (c *Client) handleLogMessage(s string) {
 		return
 	}
 
+	// Check join team
+	matches = ReJoinTeam.FindStringSubmatch(s)
+	if len(matches) == 6 {
+		player, oldTeam, newTeam := matches[1], matches[4], matches[5]
+		c.localStateMu.Lock()
+		defer c.localStateMu.Unlock()
+		if matches[3] == "BOT" {
+			c.localState.JoinTeam("BOT", oldTeam, newTeam)
+			return
+		}
+		log.Printf("CSGO Online: %v joins team %v\n", player, newTeam)
+		c.localState.JoinTeam(player, oldTeam, newTeam)
+	}
+
 	// Check game state
 	matches = ReMatchStatus.FindStringSubmatch(s)
 	if len(matches) >= 4 {
 		c.localStateMu.Lock()
-		c.localState.CTScore, _ = strconv.Atoi(matches[1])
-		c.localState.TScore, _ = strconv.Atoi(matches[2])
+		c.localState.CT.Score, _ = strconv.Atoi(matches[1])
+		c.localState.T.Score, _ = strconv.Atoi(matches[2])
 		c.localState.Map = matches[3]
 		c.localState.RoundsPlayed, _ = strconv.Atoi(matches[4])
 		c.localState.GameOngoing = c.localState.RoundsPlayed >= 0
@@ -290,6 +297,15 @@ func (c *Client) handleLogMessage(s string) {
 	if len(matches) > 0 {
 		c.localStateMu.Lock()
 		c.localState.GameOngoing = false
+		c.localStateMu.Unlock()
+		return
+	}
+
+	// Cleanup
+	matches = ReLogFileClosed.FindStringSubmatch(s)
+	if len(matches) > 0 {
+		c.localStateMu.Lock()
+		c.localState.UnsetTeams()
 		c.localStateMu.Unlock()
 		return
 	}
