@@ -14,9 +14,7 @@ func Handle206IP(w http.ResponseWriter, req *http.Request) {
 	r, err := cmd.StdoutPipe()
 	if err != nil {
 		log.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Header().Set("Content-Type", "text/plain")
-		fmt.Fprintf(w, "internal server error: %s\n", err)
+		http.Error(w, fmt.Sprintf("internal server error: %v\n", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -30,14 +28,9 @@ func Handle206IP(w http.ResponseWriter, req *http.Request) {
 		}
 		if parts[0] == config.WgPubkey {
 			ip := strings.Split(parts[1], ":")[0]
-			w.WriteHeader(http.StatusOK)
-			w.Header().Set("Content-Type", "text/plain")
-			w.Write([]byte(ip + "\n"))
+			http.Error(w, ip, http.StatusOK)
 			return
 		}
 	}
-
-	w.WriteHeader(http.StatusInternalServerError)
-	w.Header().Set("Content-Type", "text/plain")
-	w.Write([]byte("server not found\n"))
+	http.Error(w, "server not found", http.StatusInternalServerError)
 }
