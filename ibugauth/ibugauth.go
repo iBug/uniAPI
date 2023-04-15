@@ -30,15 +30,15 @@ type CasAttributes struct {
 	Email     string    `xml:"email"`
 }
 
-type CasAttributesA CasAttributes
-type CasAttributesS struct {
-	*CasAttributesA
+type casAttributesA CasAttributes
+type casAttributesS struct {
+	*casAttributesA
 	LoginTime string `xml:"logintime"`
 	Glzjh     string `xml:"glzjh"`
 }
 
 func (c *CasAttributes) UnmarshalXML(d *xml.Decoder, start xml.StartElement) (err error) {
-	s := &CasAttributesS{CasAttributesA: (*CasAttributesA)(c)}
+	s := &casAttributesS{casAttributesA: (*casAttributesA)(c)}
 	if err = d.DecodeElement(s, &start); err != nil {
 		return
 	}
@@ -69,10 +69,12 @@ func ParseCasInfo(r io.Reader) (*CasInfo, error) {
 	return data, nil
 }
 
+var stubCasInfo CasInfo
+
 func ValidateCasTicket(ticket string) (*CasInfo, error) {
 	if ticket == "x" {
 		// debug ticket
-		return nil, nil
+		return &stubCasInfo, nil
 	}
 	url, _ := url.ParseRequestURI(CasValidateUrl)
 	q := url.Query()
@@ -82,7 +84,7 @@ func ValidateCasTicket(ticket string) (*CasInfo, error) {
 	resp, err := http.Get(url.String())
 	if err != nil {
 		log.Println(err)
-		return nil, err
+		return &stubCasInfo, err
 	}
 	defer resp.Body.Close()
 	return ParseCasInfo(resp.Body)
