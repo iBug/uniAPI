@@ -115,6 +115,10 @@ func (c *Client) Close() error {
 
 // ServeHTTP implements the http.Handler interface.
 func (c *Client) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if true {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 	status, err := c.GetStatus()
 	if err != nil {
 		log.Printf("Terraria error: %v", err)

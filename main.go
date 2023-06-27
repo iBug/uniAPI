@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"time"
 
 	"github.com/iBug/api-ustc/common"
 	"github.com/iBug/api-ustc/csgo"
@@ -126,11 +127,16 @@ func main() {
 		io.WriteString(w, "User-Agent: *\nDisallow: /\n")
 	})
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	handler := func(w http.ResponseWriter, r *http.Request) {
 		LogRequest(r)
 		w.Header().Set("X-Robots-Tag", "noindex")
 		mainMux.ServeHTTP(w, r)
-	})
-	log.Fatal(http.ListenAndServe(listenAddr, mux))
+	}
+	s := &http.Server{
+		Addr:         listenAddr,
+		Handler:      http.HandlerFunc(handler),
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+	log.Fatal(s.ListenAndServe())
 }

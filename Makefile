@@ -4,7 +4,7 @@ INSTALL := $(HOME)/.local/bin/$(BIN)
 SERVICE := $(BIN).service
 
 #GOFLAGS := -compiler=gccgo -gccgoflags='-s -w'
-GOFLAGS =
+GOFLAGS = -ldflags='-s -w'
 
 SYSTEMCTL_COMMANDS := start stop restart status reload
 JOURNALCTL_COMMANDS := log logs
