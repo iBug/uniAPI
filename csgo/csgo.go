@@ -108,9 +108,9 @@ func (c *Client) GetStatus() (Status, error) {
 	retries := 0
 	for err != nil {
 		retries++
-		log.Printf("GetCsgoStatus rcon error %d: %v", retries, err)
+		log.Printf("csgo.GetStatus rcon error %d: %v", retries, err)
 		if retries >= 3 {
-			return Status{}, fmt.Errorf("GetCsgoStatus error: %w", err)
+			return Status{}, fmt.Errorf("csgo.GetStatus error: %w", err)
 		}
 		time.Sleep(1 * time.Second)
 		msg, err = c.rcon.Execute("cvarlist game_; status")
