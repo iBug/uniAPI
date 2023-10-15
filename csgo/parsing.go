@@ -22,12 +22,14 @@ func r(format string, args ...any) regexp.Regexp {
 }
 
 var (
-	RePlayers      = r(`^(\d+) humans?, (\d+) bots?`)
-	ReConnected    = r(`^%s connected,`, rePlayer4)
-	ReDisconnected = r(`^%s disconnected \(`, rePlayer4)
-	ReJoinTeam     = r(`^%s switched from team <(\w+)> to <(\w+)>`, rePlayer3)
-	ReMatchStatus  = r(`^MatchStatus: Score: (\d+):(\d+) on map "(\w+)" RoundsPlayed: (\d+)`)
-	ReGameOver     = r(`^(Game Over:)`)
+	ReSpawngroup      = r(`spawngroup\(\s*(\d+)\s*\)`)
+	ReSpawngroupValue = r(`\[(\d+):\s*(\S+)\s*[^]]*\]`)
+	RePlayers         = r(`^(\d+) humans?, (\d+) bots?`)
+	ReConnected       = r(`^%s connected,`, rePlayer4)
+	ReDisconnected    = r(`^%s disconnected \(`, rePlayer4)
+	ReJoinTeam        = r(`^%s switched from team <(\w+)> to <(\w+)>`, rePlayer3)
+	ReMatchStatus     = r(`^MatchStatus: Score: (\d+):(\d+) on map "(\w+)" RoundsPlayed: (\d+)`)
+	ReGameOver        = r(`^(Game Over:)`)
 
 	ReLogFileClosed = r(`^Log file closed`)
 )

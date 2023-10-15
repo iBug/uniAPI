@@ -104,7 +104,7 @@ func (s *Status) ParseGameMode() string {
 }
 
 func (c *Client) GetStatus() (Status, error) {
-	msg, err := c.rcon.Execute("cvarlist game_; status")
+	msg, err := c.rcon.Execute("status; cvarlist game_")
 	retries := 0
 	for err != nil {
 		retries++
@@ -122,7 +122,29 @@ func (c *Client) GetStatus() (Status, error) {
 		if len(line) == 0 {
 			continue
 		}
-		if !strings.HasPrefix(line, "#") {
+		if strings.HasPrefix(line, "#") {
+			parts := strings.SplitN(line, "\"", 3)
+			if len(parts) != 3 {
+				continue
+			}
+			moreInfo := strings.Split(strings.TrimSpace(parts[2]), " ")
+			if moreInfo[0] == "BOT" {
+				continue
+			}
+			status.Players = append(status.Players, parts[1])
+			continue
+		} else if strings.HasPrefix(line, "loaded spawngroup") {
+			items := strings.Split(line, "[1:")
+			if len(items) < 2 {
+				continue
+			}
+			items = strings.Split(items[1], "|")
+			if len(items) == 0 {
+				continue
+			}
+			status.Map = strings.TrimSpace(items[0])
+			continue
+		} else {
 			items := strings.SplitN(line, ": ", 3)
 			if len(items) < 2 {
 				continue
@@ -141,16 +163,6 @@ func (c *Client) GetStatus() (Status, error) {
 			case "game_type":
 				status.cvar_GameType, _ = strconv.Atoi(value)
 			}
-		} else {
-			parts := strings.SplitN(line, "\"", 3)
-			if len(parts) != 3 {
-				continue
-			}
-			moreInfo := strings.Split(strings.TrimSpace(parts[2]), " ")
-			if moreInfo[0] == "BOT" {
-				continue
-			}
-			status.Players = append(status.Players, parts[1])
 		}
 	}
 	status.GameMode = status.ParseGameMode()
