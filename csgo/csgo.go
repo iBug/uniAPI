@@ -1,13 +1,13 @@
 package csgo
 
 import (
+	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log"
-	"net"
 	"net/http"
 	"os"
 	"strconv"
@@ -15,6 +15,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/stdcopy"
 	rcon "github.com/forewing/csgo-rcon"
 	"github.com/iBug/api-ustc/common"
 )
@@ -56,8 +59,10 @@ var GameModeMap = map[int]string{
 
 type Config struct {
 	common.RconConfig
-	Api         string `json:"api"`
-	DisableFile string `json:"disable-file"`
+	DockerHost    string `json:"docker-host"`
+	ContainerName string `json:"container-name"`
+	Api           string `json:"api"`
+	DisableFile   string `json:"disable-file"`
 }
 
 type Client struct {
@@ -65,11 +70,8 @@ type Client struct {
 	CacheTime  time.Duration
 	SilentFunc func() bool
 
-	rcon *rcon.Client
-
-	// For LogServer source validation
-	serverAddr net.IP
-	serverPort int
+	rcon   *rcon.Client
+	docker *client.Client
 
 	savedStatus  Status
 	localState   LocalState
@@ -78,11 +80,13 @@ type Client struct {
 
 func NewClient(config Config) *Client {
 	c := &Client{
-		Api:        config.Api,
-		CacheTime:  10 * time.Second,
-		rcon:       common.RconClient(config.RconConfig),
-		serverAddr: net.ParseIP(config.ServerAddr),
-		serverPort: config.ServerPort,
+		Api:       config.Api,
+		CacheTime: 10 * time.Second,
+		rcon:      common.RconClient(config.RconConfig),
+	}
+
+	if config.ContainerName != "" {
+		c.StartLogWatcher(config.DockerHost, config.ContainerName)
 	}
 
 	if config.DisableFile != "" {
@@ -329,42 +333,53 @@ func (c *Client) onlineWorker(ch <-chan string) {
 	}
 }
 
-func (c *Client) logServer(ln *net.UDPConn, ch chan<- string) error {
-	buf := make([]byte, 4096)
+func (c *Client) logWatcher(container string, ch chan<- string) error {
+	options := types.ContainerLogsOptions{
+		ShowStdout: true,
+		ShowStderr: false,
+		Follow:     true,
+		Tail:       "1",
+	}
 	for {
-		n, addr, err := ln.ReadFromUDP(buf)
-		if errors.Is(err, net.ErrClosed) {
-			log.Print(err)
-			return nil
-		} else if err != nil {
-			log.Print(err)
-			continue
+		reader, err := c.docker.ContainerLogs(context.Background(), container, options)
+		if err != nil {
+			return err
 		}
-		if !addr.IP.Equal(c.serverAddr) || addr.Port != c.serverPort {
-			log.Printf("Received packet from unexpected address: %s", addr)
-			continue
+		pipeR, pipeW := io.Pipe()
+		go stdcopy.StdCopy(pipeW, io.Discard, reader)
+
+		scanner := bufio.NewScanner(pipeR)
+		for scanner.Scan() {
+			text := strings.TrimSpace(scanner.Text())
+			parts := strings.SplitN(text, ": ", 2)
+			if len(parts) != 2 {
+				continue
+			}
+			ch <- parts[1]
 		}
-		text := strings.TrimSpace(string(buf[:n]))
-		parts := strings.SplitN(text, ": ", 2)
-		if len(parts) != 2 {
-			continue
-		}
-		ch <- parts[1]
+		log.Println(scanner.Err())
+		reader.Close()
 	}
 }
 
-func (c *Client) StartLogServer(listenAddr string) (io.Closer, error) {
-	listenUDPAddr, err := net.ResolveUDPAddr("udp", listenAddr)
+func (c *Client) StartLogWatcher(dockerHost string, container string) error {
+	d, err := client.NewClientWithOpts(
+		client.FromEnv,
+		client.WithHost(dockerHost),
+		client.WithAPIVersionNegotiation(),
+	)
 	if err != nil {
-		return nil, fmt.Errorf("ResolveUDPAddr %#v: %w", listenAddr, err)
+		return err
 	}
-
-	ln, err := net.ListenUDP("udp", listenUDPAddr)
-	if err != nil {
-		return nil, err
-	}
-	ch := make(chan string, 64)
+	c.docker = d
+	ch := make(chan string, 1)
 	go c.onlineWorker(ch)
-	go c.logServer(ln, ch)
-	return ln, nil
+	go func() {
+		for {
+			err := c.logWatcher(container, ch)
+			log.Printf("CSGO log watcher error: %w\n", err)
+			time.Sleep(time.Second)
+		}
+	}()
+	return nil
 }

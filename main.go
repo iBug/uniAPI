@@ -69,7 +69,6 @@ func LoadConfig() error {
 
 func main() {
 	flag.StringVar(&listenAddr, "l", ":8000", "listen address")
-	flag.StringVar(&csgologAddr, "csgolog", "", "CS:GO log listen address")
 	flag.Parse()
 
 	// $JOURNAL_STREAM is set by systemd v231+
@@ -82,9 +81,6 @@ func main() {
 	}
 
 	csgoClient := csgo.NewClient(config.Csgo)
-	if csgologAddr != "" {
-		csgoClient.StartLogServer(csgologAddr)
-	}
 
 	facClient := factorio.NewClient(config.Factorio)
 
