@@ -6,13 +6,15 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	rcon "github.com/forewing/csgo-rcon"
 	"github.com/iBug/api-ustc/common"
 )
 
 type Status struct {
-	Players []string `json:"players"`
+	Time    time.Time `json:"time"`
+	Players []string  `json:"players"`
 }
 
 type Config struct {
@@ -44,6 +46,7 @@ func (c *Client) GetStatus() (Status, error) {
 		line = strings.Split(line, ",")[0]
 		status.Players = append(status.Players, line)
 	}
+	status.Time = time.Now().Truncate(time.Second)
 	return status, nil
 }
 
