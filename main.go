@@ -17,6 +17,7 @@ import (
 	"github.com/iBug/api-ustc/factorio"
 	"github.com/iBug/api-ustc/ibugauth"
 	"github.com/iBug/api-ustc/minecraft"
+	"github.com/iBug/api-ustc/palworld"
 	"github.com/iBug/api-ustc/teamspeak"
 	"github.com/iBug/api-ustc/terraria"
 	"github.com/iBug/api-ustc/ustc"
@@ -26,6 +27,7 @@ type Config struct {
 	Csgo       csgo.Config      `json:"csgo"`
 	Factorio   factorio.Config  `json:"factorio"`
 	Minecraft  minecraft.Config `json:"minecraft"`
+	Palworld   palworld.Config  `json:"palworld"`
 	Terraria   terraria.Config  `json:"terraria"`
 	Teamspeak  teamspeak.Config `json:"teamspeak"`
 	UstcTokens []string         `json:"ustc-tokens"`
@@ -86,6 +88,8 @@ func main() {
 
 	minecraftClient := minecraft.NewClient(config.Minecraft)
 
+	palworldClient := palworld.NewClient(config.Palworld)
+
 	trClient := terraria.NewClient(config.Terraria)
 
 	tsClient := teamspeak.NewClient(config.Teamspeak)
@@ -112,6 +116,7 @@ func main() {
 	mainMux.Handle("/csgo", csgoClient)
 	mainMux.Handle("/factorio", facClient)
 	mainMux.Handle("/minecraft", minecraftClient)
+	mainMux.Handle("/palworld", palworldClient)
 	mainMux.Handle("/terraria", trClient)
 	mainMux.Handle("/teamspeak", tsHandler)
 	mainMux.HandleFunc("/206ip", Handle206IP)

@@ -1,6 +1,8 @@
 module github.com/iBug/api-ustc
 
-go 1.21
+go 1.21.6
+
+replace github.com/forewing/csgo-rcon => ./common/rcon
 
 require (
 	github.com/docker/docker v24.0.6+incompatible
