@@ -70,6 +70,8 @@ type Client struct {
 	reqID   int32
 	tcpConn *net.TCPConn
 
+	checkReqID bool
+
 	lock sync.Mutex
 }
 
@@ -79,11 +81,18 @@ func New(address, password string, timeout time.Duration) *Client {
 		address:  address,
 		password: password,
 		timeout:  timeout,
+
+		checkReqID: true,
 	}
 	if c.timeout <= 0 {
 		c.timeout = DefaultTimeout
 	}
 	return c
+}
+
+// SetCheckRequestID configures the client to validate request ID for received packets. Some non-conforming Rcon servers may return a zero request ID for every response.
+func (c *Client) SetCheckRequestID(b bool) {
+	c.checkReqID = b
 }
 
 // Execute the command.
@@ -248,7 +257,7 @@ func (c *Client) receive() (string, error) {
 			c.disconnect()
 			return "", ErrBadPassword
 		}
-		if requestID != c.reqID {
+		if c.checkReqID && requestID != c.reqID {
 			return "", fmt.Errorf("inconsistent requestID: %v, expected: %v", requestID, c.reqID)
 		}
 

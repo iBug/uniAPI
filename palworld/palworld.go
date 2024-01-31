@@ -10,7 +10,7 @@ import (
 )
 
 type Status struct {
-	s string
+	S string
 }
 
 type Config struct {
@@ -25,6 +25,7 @@ func NewClient(config Config) *Client {
 	c := &Client{
 		rcon: common.RconClient(config.RconConfig),
 	}
+	c.rcon.SetCheckRequestID(false)
 	return c
 }
 
@@ -34,7 +35,7 @@ func (c *Client) GetStatus() (Status, error) {
 	if err != nil {
 		return status, err
 	}
-	status.s = msg
+	status.S = msg
 	return status, nil
 }
 
