@@ -1,16 +1,18 @@
 package palworld
 
 import (
+	"bufio"
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 
 	rcon "github.com/forewing/csgo-rcon"
 	"github.com/iBug/api-ustc/common"
 )
 
 type Status struct {
-	S string
+	Players []string `json:"players"`
 }
 
 type Config struct {
@@ -35,7 +37,13 @@ func (c *Client) GetStatus() (Status, error) {
 	if err != nil {
 		return status, err
 	}
-	status.S = msg
+	s := bufio.NewScanner(strings.NewReader(msg))
+	s.Scan() // Discard first line
+	for s.Scan() {
+		line := s.Text()
+		line = strings.Split(line, ",")[0]
+		status.Players = append(status.Players, line)
+	}
 	return status, nil
 }
 
