@@ -1,2 +1,3 @@
 # api-ustc
-API server running on USTC private server
+
+A custom server that converts many data sources into a JSON API.

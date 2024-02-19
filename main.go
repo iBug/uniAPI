@@ -8,30 +8,16 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 	"time"
 
 	"github.com/iBug/api-ustc/common"
-	"github.com/iBug/api-ustc/csgo"
-	"github.com/iBug/api-ustc/factorio"
-	"github.com/iBug/api-ustc/ibugauth"
-	"github.com/iBug/api-ustc/minecraft"
-	"github.com/iBug/api-ustc/palworld"
-	"github.com/iBug/api-ustc/teamspeak"
-	"github.com/iBug/api-ustc/terraria"
-	"github.com/iBug/api-ustc/ustc"
+	_ "github.com/iBug/api-ustc/plugins"
+	"github.com/iBug/api-ustc/plugins/ibugauth"
 )
 
 type Config struct {
-	Csgo       csgo.Config      `json:"csgo"`
-	Factorio   factorio.Config  `json:"factorio"`
-	Minecraft  minecraft.Config `json:"minecraft"`
-	Palworld   palworld.Config  `json:"palworld"`
-	Terraria   terraria.Config  `json:"terraria"`
-	Teamspeak  teamspeak.Config `json:"teamspeak"`
-	UstcTokens []string         `json:"ustc-tokens"`
-	WgPubkey   string           `json:"wg-pubkey"`
+	Services ServiceSet `json:"services"`
 }
 
 var (
@@ -49,14 +35,16 @@ func LogRequest(r *http.Request) {
 	log.Printf("%s %q from %s\n", r.Method, r.URL.Path, remoteAddr)
 }
 
-func LoadConfig() error {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return err
-	}
+func LoadConfig(path string) error {
+	if path == "" {
+		var err error
+		path, err = common.DefaultConfigPath()
+		if err != nil {
+			return err
+		}
 
-	configFile := filepath.Join(homeDir, ".config/api-ustc.json")
-	f, err := os.Open(configFile)
+	}
+	f, err := os.Open(path)
 	if err != nil {
 		return err
 	}
@@ -70,7 +58,9 @@ func LoadConfig() error {
 }
 
 func main() {
+	var configFile string
 	flag.StringVar(&listenAddr, "l", ":8000", "listen address")
+	flag.StringVar(&configFile, "c", "", "config file (default ~/.config/api-ustc.yml)")
 	flag.Parse()
 
 	// $JOURNAL_STREAM is set by systemd v231+
@@ -78,35 +68,18 @@ func main() {
 		log.SetFlags(log.Flags() &^ (log.Ldate | log.Ltime))
 	}
 
-	if err := LoadConfig(); err != nil {
+	if err := LoadConfig(configFile); err != nil {
 		log.Fatal(err)
 	}
-
-	csgoClient := csgo.NewClient(config.Csgo)
-
-	facClient := factorio.NewClient(config.Factorio)
-
-	minecraftClient := minecraft.NewClient(config.Minecraft)
-
-	palworldClient := palworld.NewClient(config.Palworld)
-
-	trClient := terraria.NewClient(config.Terraria)
-
-	tsClient := teamspeak.NewClient(config.Teamspeak)
-	tsHandler := &common.TokenProtectedHandler{tsClient, config.UstcTokens}
-
-	ustcHandler := &common.TokenProtectedHandler{http.HandlerFunc(ustc.HandleUstcId), config.UstcTokens}
 
 	// Reload config on SIGHUP
 	signalC := make(chan os.Signal, 1)
 	signal.Notify(signalC, syscall.SIGHUP)
 	go func() {
 		for range signalC {
-			if err := LoadConfig(); err != nil {
+			if err := LoadConfig(configFile); err != nil {
 				log.Printf("Error reloading config: %v", err)
 			} else {
-				tsHandler.Tokens = config.UstcTokens
-				ustcHandler.Tokens = config.UstcTokens
 				log.Printf("Config reloaded!")
 			}
 		}
