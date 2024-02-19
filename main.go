@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 	"time"
 
@@ -20,13 +19,11 @@ type Config struct {
 }
 
 var (
-	listenAddr  string
-	csgologAddr string
-
-	config Config
+	config  Config
+	handler common.ReloadableHandler
 )
 
-func LogRequest(r *http.Request) {
+func logRequest(r *http.Request) {
 	remoteAddr := r.Header.Get("CF-Connecting-IP")
 	if remoteAddr == "" {
 		remoteAddr = "(local)"
@@ -34,7 +31,7 @@ func LogRequest(r *http.Request) {
 	log.Printf("%s %q from %s\n", r.Method, r.URL.Path, remoteAddr)
 }
 
-func LoadConfig(path string) error {
+func loadConfig(path string) error {
 	if path == "" {
 		var err error
 		path, err = common.DefaultConfigPath()
@@ -53,32 +50,20 @@ func LoadConfig(path string) error {
 	if err != nil {
 		return err
 	}
+
+	s, err := NewServer(config.Services)
+	if err != nil {
+		return err
+	}
+	handler.Set(s)
 	return nil
 }
 
-type reloadableHandler struct {
-	mu sync.RWMutex
-	h  http.Handler
-}
-
-func (h *reloadableHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	h.Get().ServeHTTP(w, r)
-}
-
-func (h *reloadableHandler) Get() http.Handler {
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-	return h.h
-}
-
-func (h *reloadableHandler) Set(handler http.Handler) {
-	h.mu.Lock()
-	h.h = handler
-	h.mu.Unlock()
-}
-
 func main() {
-	var configFile string
+	var (
+		listenAddr string
+		configFile string
+	)
 	flag.StringVar(&listenAddr, "l", ":8000", "listen address")
 	flag.StringVar(&configFile, "c", "", "config file (default ~/.config/api-ustc.yml)")
 	flag.Parse()
@@ -88,7 +73,7 @@ func main() {
 		log.SetFlags(log.Flags() &^ (log.Ldate | log.Ltime))
 	}
 
-	if err := LoadConfig(configFile); err != nil {
+	if err := loadConfig(configFile); err != nil {
 		log.Fatal(err)
 	}
 
@@ -97,7 +82,7 @@ func main() {
 	signal.Notify(signalC, syscall.SIGHUP)
 	go func() {
 		for range signalC {
-			if err := LoadConfig(configFile); err != nil {
+			if err := loadConfig(configFile); err != nil {
 				log.Printf("Error reloading config: %v", err)
 			} else {
 				log.Printf("Config reloaded!")
@@ -105,20 +90,14 @@ func main() {
 		}
 	}()
 
-	server, err := NewServer(config.Services)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	handler := &reloadableHandler{}
-	handler.Set(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		LogRequest(r)
+	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		logRequest(r)
 		w.Header().Set("X-Robots-Tag", "noindex")
-		server.ServeHTTP(w, r)
-	}))
+		handler.ServeHTTP(w, r)
+	})
 	s := &http.Server{
 		Addr:         listenAddr,
-		Handler:      handler,
+		Handler:      h,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
