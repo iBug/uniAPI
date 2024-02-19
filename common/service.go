@@ -13,3 +13,8 @@ type ServiceConfig struct {
 type Service interface {
 	http.Handler
 }
+
+type Activator interface {
+	Start() error
+	Stop() error
+}

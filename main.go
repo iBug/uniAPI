@@ -11,14 +11,15 @@ import (
 
 	"github.com/iBug/api-ustc/common"
 	_ "github.com/iBug/api-ustc/plugins"
+	"github.com/iBug/api-ustc/server"
 	"sigs.k8s.io/yaml"
 )
 
 type Config struct {
-	Services ServiceSet `json:"services"`
+	Services server.ServiceSet `json:"services"`
 }
 
-var handler common.ReloadableHandler
+var handler server.ReloadableHandler
 
 func logRequest(r *http.Request) {
 	remoteAddr := r.Header.Get("CF-Connecting-IP")
@@ -48,7 +49,7 @@ func loadConfig(path string) error {
 		return err
 	}
 
-	s, err := NewServer(config.Services)
+	s, err := server.NewServer(config.Services)
 	if err != nil {
 		return err
 	}
