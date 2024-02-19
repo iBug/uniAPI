@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"flag"
-	"io"
 	"log"
 	"net/http"
 	"os"
@@ -95,11 +94,7 @@ func main() {
 	mainMux.HandleFunc("/206ip", Handle206IP)
 	mainMux.HandleFunc("/ibug-auth", ibugauth.HandleIBugAuth)
 	mainMux.Handle("/ustc-id", ustcHandler)
-	mainMux.HandleFunc("/robots.txt", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		w.WriteHeader(http.StatusOK)
-		io.WriteString(w, "User-Agent: *\nDisallow: /\n")
-	})
+	mainMux.HandleFunc("/robots.txt", func(w http.ResponseWriter, r *http.Request) {})
 
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		LogRequest(r)
