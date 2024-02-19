@@ -9,4 +9,5 @@ import (
 	_ "github.com/iBug/api-ustc/plugins/teamspeak"
 	_ "github.com/iBug/api-ustc/plugins/terraria"
 	_ "github.com/iBug/api-ustc/plugins/ustc"
+	_ "github.com/iBug/api-ustc/plugins/wireguard"
 )
