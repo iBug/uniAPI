@@ -220,3 +220,16 @@ func (c *Client) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(result)
 }
+
+func NewService(config json.RawMessage) (common.Service, error) {
+	var cfg Config
+	err := json.Unmarshal(config, &cfg)
+	if err != nil {
+		return nil, err
+	}
+	return NewClient(cfg), nil
+}
+
+func init() {
+	common.RegisterService("teamspeak", NewService)
+}

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"log"
 	"net/http"
@@ -12,16 +11,14 @@ import (
 
 	"github.com/iBug/api-ustc/common"
 	_ "github.com/iBug/api-ustc/plugins"
+	"sigs.k8s.io/yaml"
 )
 
 type Config struct {
 	Services ServiceSet `json:"services"`
 }
 
-var (
-	config  Config
-	handler common.ReloadableHandler
-)
+var handler common.ReloadableHandler
 
 func logRequest(r *http.Request) {
 	remoteAddr := r.Header.Get("CF-Connecting-IP")
@@ -40,13 +37,13 @@ func loadConfig(path string) error {
 		}
 
 	}
-	f, err := os.Open(path)
+	b, err := os.ReadFile(path)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
 
-	err = json.NewDecoder(f).Decode(&config)
+	var config Config
+	err = yaml.Unmarshal(b, &config)
 	if err != nil {
 		return err
 	}
