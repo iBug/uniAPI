@@ -1,6 +1,7 @@
 package ibugauth
 
 import (
+	"encoding/json"
 	"encoding/xml"
 	"io"
 	"log"
@@ -8,6 +9,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/iBug/api-ustc/common"
 )
 
 const (
@@ -90,7 +93,9 @@ func ValidateCasTicket(ticket string) (*CasInfo, error) {
 	return ParseCasInfo(resp.Body)
 }
 
-func HandleIBugAuth(w http.ResponseWriter, r *http.Request) {
+type Service struct{}
+
+func (Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	ticket, ok := query["ticket"]
 	if !ok {
@@ -122,4 +127,12 @@ func HandleIBugAuth(w http.ResponseWriter, r *http.Request) {
 		HttpOnly: true,
 	})
 	http.Redirect(w, r, "/", http.StatusFound)
+}
+
+func NewService(_ json.RawMessage) (common.Service, error) {
+	return Service{}, nil
+}
+
+func init() {
+	common.RegisterService("ibug-auth", NewService)
 }
