@@ -7,12 +7,12 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
 	"github.com/iBug/api-ustc/common"
 	_ "github.com/iBug/api-ustc/plugins"
-	"github.com/iBug/api-ustc/plugins/ibugauth"
 )
 
 type Config struct {
@@ -56,6 +56,27 @@ func LoadConfig(path string) error {
 	return nil
 }
 
+type reloadableHandler struct {
+	mu sync.RWMutex
+	h  http.Handler
+}
+
+func (h *reloadableHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h.Get().ServeHTTP(w, r)
+}
+
+func (h *reloadableHandler) Get() http.Handler {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.h
+}
+
+func (h *reloadableHandler) Set(handler http.Handler) {
+	h.mu.Lock()
+	h.h = handler
+	h.mu.Unlock()
+}
+
 func main() {
 	var configFile string
 	flag.StringVar(&listenAddr, "l", ":8000", "listen address")
@@ -84,26 +105,20 @@ func main() {
 		}
 	}()
 
-	mainMux := http.NewServeMux()
-	mainMux.Handle("/csgo", csgoClient)
-	mainMux.Handle("/factorio", facClient)
-	mainMux.Handle("/minecraft", minecraftClient)
-	mainMux.Handle("/palworld", palworldClient)
-	mainMux.Handle("/terraria", trClient)
-	mainMux.Handle("/teamspeak", tsHandler)
-	mainMux.HandleFunc("/206ip", Handle206IP)
-	mainMux.HandleFunc("/ibug-auth", ibugauth.HandleIBugAuth)
-	mainMux.Handle("/ustc-id", ustcHandler)
-	mainMux.HandleFunc("/robots.txt", func(w http.ResponseWriter, r *http.Request) {})
+	server, err := NewServer(config.Services)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	handler := func(w http.ResponseWriter, r *http.Request) {
+	handler := &reloadableHandler{}
+	handler.Set(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		LogRequest(r)
 		w.Header().Set("X-Robots-Tag", "noindex")
-		mainMux.ServeHTTP(w, r)
-	}
+		server.ServeHTTP(w, r)
+	}))
 	s := &http.Server{
 		Addr:         listenAddr,
-		Handler:      http.HandlerFunc(handler),
+		Handler:      handler,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
