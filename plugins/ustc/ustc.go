@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/iBug/api-ustc/common"
 )
 
 type ReaderInfo struct {
@@ -37,7 +39,9 @@ var (
 	httpClient = &http.Client{Transport: httpTransport, Timeout: httpTimeout}
 )
 
-func HandleUstcId(w http.ResponseWriter, r *http.Request) {
+type UstcIdService struct{}
+
+func (s *UstcIdService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	id := r.URL.Query().Get("id")
 	if id == "" {
 		log.Print("Missing 'id' parameter")
@@ -81,4 +85,12 @@ func HandleUstcId(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(&info)
+}
+
+func NewService(_ json.RawMessage) (common.Service, error) {
+	return &UstcIdService{}, nil
+}
+
+func init() {
+	common.RegisterService("ustc-id", NewService)
 }
