@@ -134,5 +134,5 @@ func NewService(_ json.RawMessage) (common.Service, error) {
 }
 
 func init() {
-	common.RegisterService("ibug-auth", NewService)
+	common.Services.Register("ibug-auth", NewService)
 }

@@ -58,5 +58,5 @@ func NewService(config json.RawMessage) (common.Service, error) {
 }
 
 func init() {
-	common.RegisterService("wireguard.endpoint", NewService)
+	common.Services.Register("wireguard.endpoint", NewService)
 }

@@ -20,5 +20,5 @@ func NewService(_ json.RawMessage) (common.Service, error) {
 }
 
 func init() {
-	common.RegisterService("robotstxt", NewService)
+	common.Services.Register("robotstxt", NewService)
 }

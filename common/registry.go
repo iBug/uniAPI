@@ -2,28 +2,22 @@ package common
 
 import "encoding/json"
 
-type NewServiceFunc = func(json.RawMessage) (Service, error)
+type NewFuncT[T any] func(json.RawMessage) (T, error)
 
-var services = make(map[string]NewServiceFunc)
-
-func RegisterService(name string, newFunc NewServiceFunc) {
-	services[name] = newFunc
+type RegistryT[T any] struct {
+	entries map[string]NewFuncT[T]
 }
 
-func GetService(name string) (NewServiceFunc, bool) {
-	newFunc, ok := services[name]
+func (r *RegistryT[T]) Register(name string, newFunc NewFuncT[T]) {
+	r.entries[name] = newFunc
+}
+
+func (r *RegistryT[T]) Get(name string) (NewFuncT[T], bool) {
+	newFunc, ok := r.entries[name]
 	return newFunc, ok
 }
 
-type NewCommanderFunc = func(json.RawMessage) (Commander, error)
-
-var commanders = make(map[string]NewCommanderFunc)
-
-func RegisterCommander(name string, newFunc NewCommanderFunc) {
-	commanders[name] = newFunc
-}
-
-func GetCommander(name string) (NewCommanderFunc, bool) {
-	newFunc, ok := commanders[name]
-	return newFunc, ok
-}
+var (
+	Services   = RegistryT[Service]{entries: make(map[string]NewFuncT[Service])}
+	Commanders = RegistryT[Commander]{entries: make(map[string]NewFuncT[Commander])}
+)

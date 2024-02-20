@@ -92,5 +92,5 @@ func NewService(_ json.RawMessage) (common.Service, error) {
 }
 
 func init() {
-	common.RegisterService("ustc-id", NewService)
+	common.Services.Register("ustc-id", NewService)
 }

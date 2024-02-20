@@ -35,5 +35,5 @@ func NewCommander(rawConfig json.RawMessage) (common.Commander, error) {
 }
 
 func init() {
-	common.RegisterCommander("docker.exec", NewCommander)
+	common.Commanders.Register("docker.exec", NewCommander)
 }

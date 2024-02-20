@@ -28,7 +28,7 @@ func NewServer(serviceset ServiceSet) (*Server, error) {
 
 func (s *Server) loadServices(serviceset ServiceSet) error {
 	for key, cfg := range serviceset {
-		newFunc, ok := common.GetService(cfg.Service)
+		newFunc, ok := common.Services.Get(cfg.Service)
 		if !ok {
 			return fmt.Errorf("service %q not found", cfg.Service)
 		}

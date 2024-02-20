@@ -231,5 +231,5 @@ func NewService(config json.RawMessage) (common.Service, error) {
 }
 
 func init() {
-	common.RegisterService("teamspeak", NewService)
+	common.Services.Register("teamspeak", NewService)
 }
