@@ -1,6 +1,6 @@
 module github.com/iBug/api-ustc
 
-go 1.21.6
+go 1.22
 
 replace github.com/forewing/csgo-rcon => ./common/rcon
 

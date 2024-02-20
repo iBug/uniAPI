@@ -9,9 +9,12 @@ GOFLAGS = -ldflags='-s -w'
 SYSTEMCTL_COMMANDS := start stop restart status reload
 JOURNALCTL_COMMANDS := log logs
 
-.PHONY: all $(SYSTEMCTL_COMMANDS) $(JOURNALCTL_COMMANDS)
+.PHONY: all install test $(SYSTEMCTL_COMMANDS) $(JOURNALCTL_COMMANDS)
 
 all: $(BIN) install
+
+test:
+	go test -v ./...
 
 $(BIN): $(SRCS)
 	go build $(GOFLAGS) -o "$@"

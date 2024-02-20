@@ -377,7 +377,7 @@ func (c *Client) StartLogWatcher(dockerHost string, container string) error {
 	go func() {
 		for {
 			err := c.logWatcher(container, ch)
-			log.Printf("CSGO log watcher error: %w\n", err)
+			log.Printf("CSGO log watcher error: %v\n", err)
 			time.Sleep(time.Second)
 		}
 	}()

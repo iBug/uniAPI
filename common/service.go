@@ -2,6 +2,7 @@ package common
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 )
 
@@ -21,6 +22,19 @@ type CommanderConfig struct {
 
 type Commander interface {
 	Exec(cmd string) (string, error)
+}
+
+type StreamerConfig struct {
+	Streamer string          `json:"streamer"`
+	Config   json.RawMessage `json:"config"`
+}
+
+type Streamer interface {
+	Stream() (Stream, error)
+}
+
+type Stream interface {
+	io.ReadWriteCloser
 }
 
 type Activator interface {
