@@ -14,3 +14,16 @@ func GetService(name string) (NewServiceFunc, bool) {
 	newFunc, ok := services[name]
 	return newFunc, ok
 }
+
+type NewCommanderFunc = func(json.RawMessage) (Commander, error)
+
+var commanders = make(map[string]NewCommanderFunc)
+
+func RegisterCommander(name string, newFunc NewCommanderFunc) {
+	commanders[name] = newFunc
+}
+
+func GetCommander(name string) (NewCommanderFunc, bool) {
+	newFunc, ok := commanders[name]
+	return newFunc, ok
+}
