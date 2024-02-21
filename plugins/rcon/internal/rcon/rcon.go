@@ -90,7 +90,8 @@ func New(address, password string, timeout time.Duration) *Client {
 	return c
 }
 
-// SetCheckRequestID configures the client to validate request ID for received packets. Some non-conforming Rcon servers may return a zero request ID for every response.
+// SetCheckRequestID configures the client to validate request ID for received packets.
+// Some non-conforming Rcon servers may return a zero request ID for every response.
 func (c *Client) SetCheckRequestID(b bool) {
 	c.checkReqID = b
 }

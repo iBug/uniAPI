@@ -26,7 +26,7 @@ type Commander struct {
 	timeout   time.Duration
 }
 
-func (c *Commander) Exec(cmd string) (string, error) {
+func (c *Commander) Execute(cmd string) (string, error) {
 	stream, err := c.docker.ContainerAttach(context.Background(), c.container, container.AttachOptions{
 		Stream: true,
 		Stdin:  true,

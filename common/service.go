@@ -21,7 +21,7 @@ type CommanderConfig struct {
 }
 
 type Commander interface {
-	Exec(cmd string) (string, error)
+	Execute(cmd string) (string, error)
 }
 
 type StreamerConfig struct {

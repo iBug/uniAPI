@@ -2,11 +2,8 @@ module github.com/iBug/api-ustc
 
 go 1.22
 
-replace github.com/forewing/csgo-rcon => ./common/rcon
-
 require (
 	github.com/docker/docker v25.0.3+incompatible
-	github.com/forewing/csgo-rcon v1.3.0
 	sigs.k8s.io/yaml v1.4.0
 )
 
