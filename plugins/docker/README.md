@@ -1,6 +1,6 @@
 # Docker plugin
 
-This plugin implements two components:
+This plugin implements these components:
 
 - `docker.attachexec`: Implements the Commander interface by sending commands through `docker attach` and reading the output.
 - `docker.logs`: Implements the Streamer interface by reading the logs of the container. Writes are simply discarded.

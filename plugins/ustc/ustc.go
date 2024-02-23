@@ -22,24 +22,14 @@ type ReaderInfo struct {
 	Email   string   `xml:"email" json:"email"`
 }
 
-var (
-	httpTimeout = 3 * time.Second
-	httpDialer  = &net.Dialer{
-		Timeout:   httpTimeout,
-		KeepAlive: httpTimeout,
-		LocalAddr: &net.TCPAddr{IP: net.ParseIP("10.255.1.3")},
-	}
-	httpTransport = &http.Transport{
-		DialContext:           httpDialer.DialContext,
-		MaxIdleConns:          3,
-		IdleConnTimeout:       10 * httpTimeout,
-		TLSHandshakeTimeout:   httpTimeout,
-		ExpectContinueTimeout: 1 * time.Second,
-	}
-	httpClient = &http.Client{Transport: httpTransport, Timeout: httpTimeout}
-)
+type UstcIdConfig struct {
+	BindAddress string `json:"bind-address"`
+	Timeout     string `json:"timeout"`
+}
 
-type UstcIdService struct{}
+type UstcIdService struct {
+	client *http.Client
+}
 
 func (s *UstcIdService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	id := r.URL.Query().Get("id")
@@ -60,7 +50,7 @@ func (s *UstcIdService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	q.Add("id", id)
 	req.URL.RawQuery = q.Encode()
 
-	res, err := httpClient.Do(req)
+	res, err := s.client.Do(req)
 	if err != nil {
 		log.Print(err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -87,8 +77,29 @@ func (s *UstcIdService) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(&info)
 }
 
-func NewService(_ json.RawMessage) (common.Service, error) {
-	return &UstcIdService{}, nil
+func NewService(rawConfig json.RawMessage) (common.Service, error) {
+	var config UstcIdConfig
+	if err := json.Unmarshal(rawConfig, &config); err != nil {
+		return nil, err
+	}
+
+	httpTimeout := common.ParseDurationDefault(config.Timeout, 3*time.Second)
+	httpDialer := &net.Dialer{
+		Timeout:   httpTimeout,
+		KeepAlive: httpTimeout,
+	}
+	if config.BindAddress != "" {
+		httpDialer.LocalAddr = &net.TCPAddr{IP: net.ParseIP(config.BindAddress)}
+	}
+	httpTransport := &http.Transport{
+		DialContext:           httpDialer.DialContext,
+		MaxIdleConns:          3,
+		IdleConnTimeout:       10 * httpTimeout,
+		TLSHandshakeTimeout:   httpTimeout,
+		ExpectContinueTimeout: httpTimeout / 2,
+	}
+	httpClient := &http.Client{Transport: httpTransport, Timeout: httpTimeout}
+	return &UstcIdService{client: httpClient}, nil
 }
 
 func init() {

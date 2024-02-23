@@ -18,6 +18,14 @@ type Service struct {
 	UseSudo   bool   `json:"use-sudo"`
 }
 
+func stripPort(s string) string {
+	lastIndex := strings.LastIndex(s, ":")
+	if lastIndex == -1 {
+		return s
+	}
+	return s[:lastIndex]
+}
+
 func (s *Service) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	args := []string{"wg", "show", s.Interface, "endpoints"}
 	if s.UseSudo {
@@ -40,7 +48,7 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			break
 		}
 		if parts[0] == s.PublicKey {
-			ip := strings.Split(parts[1], ":")[0]
+			ip := stripPort(parts[1])
 			http.Error(w, ip, http.StatusOK)
 			return
 		}
