@@ -13,6 +13,10 @@ import (
 
 type ServiceSet map[string]json.RawMessage
 
+type ServerConfig struct {
+	Services ServiceSet `json:"services"`
+}
+
 type Server struct {
 	services map[string]common.Service
 }
@@ -68,5 +72,17 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	service.ServeHTTP(w, r)
+	http.StripPrefix("/"+key, service).ServeHTTP(w, r)
+}
+
+func NewServerFromConfig(rawConfig json.RawMessage) (common.Service, error) {
+	var config ServerConfig
+	if err := json.Unmarshal(rawConfig, &config); err != nil {
+		return nil, err
+	}
+	return NewServer(config.Services)
+}
+
+func init() {
+	common.Services.Register("server", NewServerFromConfig)
 }
