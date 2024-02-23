@@ -17,17 +17,16 @@ type Config struct {
 	Timeout    string `json:"timeout"`
 }
 
-func ParseDurationDefault(s string, def time.Duration) (d time.Duration) {
-	d = def
-	if s != "" {
-		t, err := time.ParseDuration(s)
-		if err != nil {
-			log.Printf("Invalid timeout %s, using %s\n", s, d)
-		} else {
-			d = t
-		}
+func ParseDurationDefault(s string, def time.Duration) time.Duration {
+	if s == "" {
+		return def
 	}
-	return
+	dur, err := time.ParseDuration(s)
+	if err != nil {
+		log.Printf("Invalid timeout %s, using %s\n", s, def)
+		return def
+	}
+	return dur
 }
 
 func RconClient(config Config) *rcon.Client {

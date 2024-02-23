@@ -30,7 +30,7 @@ type StreamerConfig struct {
 }
 
 type Streamer interface {
-	Stream() (Stream, error)
+	Connect() (Stream, error)
 }
 
 type Stream interface {

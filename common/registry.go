@@ -20,4 +20,5 @@ func (r *RegistryT[T]) Get(name string) (NewFuncT[T], bool) {
 var (
 	Services   = RegistryT[Service]{entries: make(map[string]NewFuncT[Service])}
 	Commanders = RegistryT[Commander]{entries: make(map[string]NewFuncT[Commander])}
+	Streamers  = RegistryT[Streamer]{entries: make(map[string]NewFuncT[Streamer])}
 )
