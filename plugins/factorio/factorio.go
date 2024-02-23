@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	rcon "github.com/forewing/csgo-rcon"
 	"github.com/iBug/api-ustc/common"
 )
 
@@ -18,22 +17,28 @@ type Status struct {
 }
 
 type Config struct {
-	common.RconConfig
+	common.CommanderConfig
 }
 
 type Client struct {
-	rcon *rcon.Client
+	commander common.Commander
 }
 
-func NewClient(config Config) *Client {
-	c := &Client{
-		rcon: common.RconClient(config.RconConfig),
+func NewClient(rawConfig json.RawMessage) (common.Service, error) {
+	var config Config
+	if err := json.Unmarshal(rawConfig, &config); err != nil {
+		return nil, err
 	}
-	return c
+
+	commander, err := common.Commanders.NewFromConfig(config.Commander)
+	if err != nil {
+		return nil, err
+	}
+	return &Client{commander}, nil
 }
 
 func (c *Client) GetStatus() (status Status, err error) {
-	response, err := c.rcon.Execute("/players online")
+	response, err := c.commander.Execute("/players online")
 	if err != nil {
 		return
 	}
@@ -66,4 +71,8 @@ func (c *Client) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "public, max-age=5")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(status)
+}
+
+func init() {
+	common.Services.Register("factorio", NewClient)
 }
