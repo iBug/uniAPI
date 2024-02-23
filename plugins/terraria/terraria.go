@@ -28,8 +28,7 @@ type Status struct {
 }
 
 type Config struct {
-	Host      string `json:"host"`
-	Container string `json:"container"`
+	common.StreamerConfig
 }
 
 type Client struct {

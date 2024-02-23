@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -10,7 +11,7 @@ import (
 	"github.com/iBug/api-ustc/common"
 )
 
-type ServiceSet map[string]common.ServiceConfig
+type ServiceSet map[string]json.RawMessage
 
 type Server struct {
 	services map[string]common.Service
@@ -27,15 +28,21 @@ func NewServer(serviceset ServiceSet) (*Server, error) {
 }
 
 func (s *Server) loadServices(serviceset ServiceSet) error {
+	var typeConfig common.TypeConfig
 	for key, cfg := range serviceset {
-		newFunc, ok := common.Services.Get(cfg.Service)
+		err := json.Unmarshal(cfg, &typeConfig)
+		if err != nil {
+			return fmt.Errorf("failed to parse service config: %v", err)
+		}
+		serviceType := typeConfig.Type
+		newFunc, ok := common.Services.Get(serviceType)
 		if !ok {
-			return fmt.Errorf("service %q not found", cfg.Service)
+			return fmt.Errorf("service %q not found", serviceType)
 		}
 
-		service, err := newFunc(cfg.Config)
+		service, err := newFunc(cfg)
 		if err != nil {
-			return fmt.Errorf("failed to create service %q: %v", cfg.Service, err)
+			return fmt.Errorf("failed to create service %q: %v", serviceType, err)
 		}
 		s.services[path.Clean(key)] = service
 	}
