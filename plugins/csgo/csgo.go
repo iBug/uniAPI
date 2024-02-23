@@ -371,3 +371,16 @@ func (c *Client) StartLogWatcher(cfg json.RawMessage) error {
 	}()
 	return nil
 }
+
+func NewCsgoService(rawConfig json.RawMessage) (common.Service, error) {
+	config := Config{}
+	err := json.Unmarshal(rawConfig, &config)
+	if err != nil {
+		return nil, err
+	}
+	return NewClient(config)
+}
+
+func init() {
+	common.Services.Register("csgo", NewCsgoService)
+}

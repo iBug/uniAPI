@@ -32,11 +32,11 @@ func NewServer(serviceset ServiceSet) (*Server, error) {
 }
 
 func (s *Server) loadServices(serviceset ServiceSet) error {
-	var typeConfig common.TypeConfig
+	// var typeConfig common.TypeConfig
 	for key, cfg := range serviceset {
 		service, err := common.Services.NewFromConfig(cfg)
 		if err != nil {
-			return fmt.Errorf("failed to create service %q: %v", typeConfig.Type, err)
+			return fmt.Errorf("failed to create service %q: %v", key, err)
 		}
 		s.services[path.Clean(key)] = service
 	}

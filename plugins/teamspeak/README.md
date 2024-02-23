@@ -6,7 +6,7 @@ Configuration:
 
 ```yaml
 key: serverquery_api_key
-instance: 1
+instance: "1"
 endpoint: ts.example.com
 timeout: 100ms
 ```
