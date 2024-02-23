@@ -14,7 +14,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/iBug/api-ustc/common"
 )
 
@@ -337,24 +336,22 @@ func (c *Client) onlineWorker(ch <-chan string) {
 	}
 }
 
-func (c *Client) logWatcher(r *bufio.Reader, ch chan<- string) error {
-
-	for {
-		pipeR, pipeW := io.Pipe()
-		go stdcopy.StdCopy(pipeW, io.Discard, reader)
-
-		scanner := bufio.NewScanner(pipeR)
-		for scanner.Scan() {
-			text := strings.TrimSpace(scanner.Text())
-			parts := strings.SplitN(text, ": ", 2)
-			if len(parts) != 2 {
-				continue
-			}
-			ch <- parts[1]
-		}
-		log.Println(scanner.Err())
-		reader.Close()
+func (c *Client) logWatcher(ch chan<- string) error {
+	stream, err := c.streamer.Connect()
+	if err != nil {
+		return err
 	}
+
+	scanner := bufio.NewScanner(stream)
+	for scanner.Scan() {
+		text := strings.TrimSpace(scanner.Text())
+		parts := strings.SplitN(text, ": ", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		ch <- parts[1]
+	}
+	return scanner.Err()
 }
 
 func (c *Client) StartLogWatcher(cfg json.RawMessage) error {
@@ -367,7 +364,7 @@ func (c *Client) StartLogWatcher(cfg json.RawMessage) error {
 	go c.onlineWorker(ch)
 	go func() {
 		for {
-			err := c.logWatcher(bufio.NewReader(c.streamer), ch)
+			err := c.logWatcher(ch)
 			log.Printf("CSGO log watcher error: %v\n", err)
 			time.Sleep(time.Second)
 		}
