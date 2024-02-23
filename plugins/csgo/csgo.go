@@ -3,7 +3,6 @@ package csgo
 import (
 	"bufio"
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,10 +14,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
-	rcon "github.com/forewing/csgo-rcon"
 	"github.com/iBug/api-ustc/common"
 )
 
@@ -57,12 +53,16 @@ var GameModeMap = map[int]string{
 	600: "danger zone",
 }
 
+type OnlineConfig struct {
+	Api         string `json:"api"`
+	DisableFile string `json:"disable-file"`
+}
+
 type Config struct {
-	common.RconConfig
-	DockerHost    string `json:"docker-host"`
-	ContainerName string `json:"container-name"`
-	Api           string `json:"api"`
-	DisableFile   string `json:"disable-file"`
+	common.CommanderConfig
+	*common.StreamerConfig // for log watcher
+
+	Online OnlineConfig `json:"online"`
 }
 
 type Client struct {
@@ -70,32 +70,36 @@ type Client struct {
 	CacheTime  time.Duration
 	SilentFunc func() bool
 
-	rcon   *rcon.Client
-	docker *client.Client
+	commander common.Commander
+	streamer  common.Streamer
 
 	savedStatus  Status
 	localState   LocalState
 	localStateMu sync.Mutex
 }
 
-func NewClient(config Config) *Client {
+func NewClient(config Config) (common.Service, error) {
+	commander, err := common.Commanders.NewFromConfig(config.Commander)
+	if err != nil {
+		return nil, err
+	}
 	c := &Client{
-		Api:       config.Api,
+		Api:       config.Online.Api,
 		CacheTime: 10 * time.Second,
-		rcon:      common.RconClient(config.RconConfig),
+		commander: commander,
 	}
 
-	if config.ContainerName != "" {
-		c.StartLogWatcher(config.DockerHost, config.ContainerName)
+	if len(config.Streamer) > 0 {
+		c.StartLogWatcher(config.Streamer)
 	}
 
-	if config.DisableFile != "" {
+	if config.Online.DisableFile != "" {
 		c.SilentFunc = func() bool {
-			_, err := os.Stat(config.DisableFile)
+			_, err := os.Stat(config.Online.DisableFile)
 			return err == nil
 		}
 	}
-	return c
+	return c, nil
 }
 
 func (s *Status) ParseGameMode() string {
@@ -108,7 +112,7 @@ func (s *Status) ParseGameMode() string {
 }
 
 func (c *Client) GetStatus() (Status, error) {
-	msg, err := c.rcon.Execute("status; cvarlist game_")
+	msg, err := c.commander.Execute("status; cvarlist game_")
 	retries := 0
 	for err != nil {
 		retries++
@@ -117,7 +121,7 @@ func (c *Client) GetStatus() (Status, error) {
 			return Status{}, fmt.Errorf("csgo.GetStatus error: %w", err)
 		}
 		time.Sleep(1 * time.Second)
-		msg, err = c.rcon.Execute("cvarlist game_; status")
+		msg, err = c.commander.Execute("cvarlist game_; status")
 	}
 
 	status := Status{Players: make([]string, 0, 10)}
@@ -333,18 +337,9 @@ func (c *Client) onlineWorker(ch <-chan string) {
 	}
 }
 
-func (c *Client) logWatcher(container string, ch chan<- string) error {
-	options := types.ContainerLogsOptions{
-		ShowStdout: true,
-		ShowStderr: false,
-		Follow:     true,
-		Tail:       "1",
-	}
+func (c *Client) logWatcher(r *bufio.Reader, ch chan<- string) error {
+
 	for {
-		reader, err := c.docker.ContainerLogs(context.Background(), container, options)
-		if err != nil {
-			return err
-		}
 		pipeR, pipeW := io.Pipe()
 		go stdcopy.StdCopy(pipeW, io.Discard, reader)
 
@@ -362,21 +357,17 @@ func (c *Client) logWatcher(container string, ch chan<- string) error {
 	}
 }
 
-func (c *Client) StartLogWatcher(dockerHost string, container string) error {
-	d, err := client.NewClientWithOpts(
-		client.FromEnv,
-		client.WithHost(dockerHost),
-		client.WithAPIVersionNegotiation(),
-	)
+func (c *Client) StartLogWatcher(cfg json.RawMessage) error {
+	streamer, err := common.Streamers.NewFromConfig(cfg)
 	if err != nil {
 		return err
 	}
-	c.docker = d
+	c.streamer = streamer
 	ch := make(chan string, 1)
 	go c.onlineWorker(ch)
 	go func() {
 		for {
-			err := c.logWatcher(container, ch)
+			err := c.logWatcher(bufio.NewReader(c.streamer), ch)
 			log.Printf("CSGO log watcher error: %v\n", err)
 			time.Sleep(time.Second)
 		}

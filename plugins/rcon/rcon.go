@@ -3,7 +3,6 @@ package common
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/iBug/api-ustc/common"
@@ -17,23 +16,11 @@ type Config struct {
 	Timeout    string `json:"timeout"`
 }
 
-func ParseDurationDefault(s string, def time.Duration) time.Duration {
-	if s == "" {
-		return def
-	}
-	dur, err := time.ParseDuration(s)
-	if err != nil {
-		log.Printf("Invalid timeout %s, using %s\n", s, def)
-		return def
-	}
-	return dur
-}
-
-func RconClient(config Config) *rcon.Client {
+func NewClient(config Config) *rcon.Client {
 	return rcon.New(
 		fmt.Sprintf("%s:%d", config.ServerAddr, config.ServerPort),
 		config.Password,
-		ParseDurationDefault(config.Timeout, 1*time.Second),
+		common.ParseDurationDefault(config.Timeout, 1*time.Second),
 	)
 }
 
@@ -43,7 +30,7 @@ func NewCommander(rawConfig json.RawMessage) (common.Commander, error) {
 	if err != nil {
 		return nil, err
 	}
-	return RconClient(config), nil
+	return NewClient(config), nil
 }
 
 func init() {

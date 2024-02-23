@@ -14,31 +14,32 @@ import (
 	"github.com/iBug/api-ustc/common"
 )
 
-type BaseConfig struct {
-	Host      string        `json:"host"`
-	Container string        `json:"container"`
-	Timeout   time.Duration `json:"timeout"`
-}
-
-type Commander struct {
+type Attacher struct {
 	docker    *client.Client
 	container string
 	timeout   time.Duration
 }
 
-func (c *Commander) Execute(cmd string) (string, error) {
-	stream, err := c.docker.ContainerAttach(context.Background(), c.container, container.AttachOptions{
+func (c *Attacher) Execute(cmd string) (string, error) {
+	ctx := context.Background()
+	stream, err := c.docker.ContainerAttach(ctx, c.container, container.AttachOptions{
 		Stream: true,
 		Stdin:  true,
 		Stdout: true,
+		Stderr: false,
 	})
 	if err != nil {
 		return "", err
 	}
 	defer stream.Close()
+	reader := demuxStream(stream.Reader, hasTty(c.docker, ctx, c.container), false)
+
+	if !strings.HasSuffix(cmd, "\n") {
+		cmd += "\n"
+	}
 
 	stream.Conn.SetWriteDeadline(time.Now().Add(c.timeout))
-	_, err = stream.Conn.Write([]byte("playing\n"))
+	_, err = stream.Conn.Write([]byte(cmd))
 	if err != nil {
 		return "", fmt.Errorf("write to container %s: %w", c.container, err)
 	}
@@ -47,7 +48,7 @@ func (c *Commander) Execute(cmd string) (string, error) {
 	buf := make([]byte, 4096)
 	for {
 		stream.Conn.SetReadDeadline(time.Now().Add(c.timeout))
-		n, err := stream.Reader.Read(buf)
+		n, err := reader.Read(buf)
 		builder.Write(buf[:n])
 		if errors.Is(err, os.ErrDeadlineExceeded) {
 			break
@@ -58,23 +59,32 @@ func (c *Commander) Execute(cmd string) (string, error) {
 	return builder.String(), nil
 }
 
-func NewCommander(rawConfig json.RawMessage) (common.Commander, error) {
+func NewAttacher(rawConfig json.RawMessage) (*Attacher, error) {
 	config := BaseConfig{}
 	if err := json.Unmarshal(rawConfig, &config); err != nil {
 		return nil, err
 	}
 
-	docker, _ := client.NewClientWithOpts(
-		client.WithHost(config.Host),
-		client.WithAPIVersionNegotiation(),
-	)
-	return &Commander{
+	docker, err := DockerClient(config)
+	if err != nil {
+		return nil, err
+	}
+	return &Attacher{
 		docker:    docker,
 		container: config.Container,
 		timeout:   config.Timeout,
 	}, nil
 }
 
+func NewAttacherStreamer(rawConfig json.RawMessage) (common.Streamer, error) {
+	return NewAttacher(rawConfig)
+}
+
+func NewAttacherCommander(rawConfig json.RawMessage) (common.Commander, error) {
+	return NewAttacher(rawConfig)
+}
+
 func init() {
-	common.Commanders.Register("docker.execattach", NewCommander)
+	common.Streamers.Register("docker.stream", NewAttacherStreamer)
+	common.Commanders.Register("docker.attachexec", NewAttacherCommander)
 }
