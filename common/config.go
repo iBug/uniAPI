@@ -10,6 +10,14 @@ type TypeConfig struct {
 	Type string `json:"type"`
 }
 
+type ServiceConfig struct {
+	Service json.RawMessage `json:"service"`
+}
+
+type CommanderConfig struct {
+	Commander json.RawMessage `json:"commander"`
+}
+
 type StreamerConfig struct {
 	Streamer json.RawMessage `json:"streamer"`
 }

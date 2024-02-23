@@ -1,7 +1,7 @@
 package terraria
 
 import (
-	"context"
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,8 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/client"
+	"github.com/iBug/api-ustc/common"
 )
 
 var (
@@ -32,36 +31,38 @@ type Config struct {
 }
 
 type Client struct {
-	container string
-	docker    *client.Client
+	streamer common.Streamer
 }
 
-func NewClient(config Config) *Client {
-	docker, _ := client.NewClientWithOpts(
-		client.WithHost(config.Host),
-		client.WithAPIVersionNegotiation(),
-	)
-	return &Client{container: config.Container, docker: docker}
+func NewClient(b json.RawMessage) (common.Service, error) {
+	var c Config
+	err := json.Unmarshal(b, &c)
+	if err != nil {
+		return nil, err
+	}
+
+	streamer, err := common.Streamers.NewFromConfig(c.Streamer)
+	if err != nil {
+		return nil, err
+	}
+	return &Client{streamer: streamer}, nil
 }
 
 func (c *Client) GetStatus() (Status, error) {
 	status := Status{Time: time.Now().Truncate(time.Second)}
-	stream, err := c.docker.ContainerAttach(context.Background(), c.container, types.ContainerAttachOptions{
-		Stream: true,
-		Stdin:  true,
-		Stdout: true,
-	})
+	stream, err := c.streamer.Connect()
 	if err != nil {
-		return status, fmt.Errorf("attach container %s: %w", c.container, err)
+		return status, fmt.Errorf("connect: %w", err)
 	}
 	defer stream.Close()
+	r := bufio.NewReader(stream)
 
-	_, err = stream.Conn.Write([]byte("playing\n"))
+	_, err = stream.Write([]byte("playing\n"))
 	if err != nil {
-		return status, fmt.Errorf("write to container %s: %w", c.container, err)
+		return status, fmt.Errorf("write: %w", err)
 	}
 
-	line, err := stream.Reader.ReadString('\n')
+	line, err := r.ReadString('\n')
 	if err != nil {
 		return status, fmt.Errorf("read echo: %w", err)
 	}
@@ -71,7 +72,7 @@ func (c *Client) GetStatus() (Status, error) {
 	}
 
 	var header [2]byte
-	n, err := io.ReadFull(stream.Reader, header[:])
+	n, err := io.ReadFull(r, header[:])
 	if err != nil {
 		return status, fmt.Errorf("read header: %w", err)
 	}
@@ -83,7 +84,7 @@ func (c *Client) GetStatus() (Status, error) {
 	}
 
 	for {
-		line, err := stream.Reader.ReadString('\n')
+		line, err := r.ReadString('\n')
 		if err != nil {
 			return status, fmt.Errorf("read line: %w", err)
 		}
@@ -108,10 +109,6 @@ func (c *Client) GetStatus() (Status, error) {
 	return status, nil
 }
 
-func (c *Client) Close() error {
-	return c.docker.Close()
-}
-
 // ServeHTTP implements the http.Handler interface.
 func (c *Client) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if true {
@@ -126,4 +123,8 @@ func (c *Client) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(status)
+}
+
+func init() {
+	common.Services.Register("terraria", NewClient)
 }

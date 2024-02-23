@@ -1,6 +1,9 @@
 package common
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 type NewFuncT[T any] func(json.RawMessage) (T, error)
 
@@ -15,6 +18,23 @@ func (r *RegistryT[T]) Register(name string, newFunc NewFuncT[T]) {
 func (r *RegistryT[T]) Get(name string) (NewFuncT[T], bool) {
 	newFunc, ok := r.entries[name]
 	return newFunc, ok
+}
+
+func (r *RegistryT[T]) New(name string, b json.RawMessage) (T, error) {
+	newFunc, ok := r.Get(name)
+	if !ok {
+		return *new(T), fmt.Errorf("%q not found", name)
+	}
+	return newFunc(b)
+}
+
+func (r *RegistryT[T]) NewFromConfig(b json.RawMessage) (T, error) {
+	var config TypeConfig
+	err := json.Unmarshal(b, &config)
+	if err != nil {
+		return *new(T), err
+	}
+	return r.New(config.Type, b)
 }
 
 var (

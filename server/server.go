@@ -30,19 +30,9 @@ func NewServer(serviceset ServiceSet) (*Server, error) {
 func (s *Server) loadServices(serviceset ServiceSet) error {
 	var typeConfig common.TypeConfig
 	for key, cfg := range serviceset {
-		err := json.Unmarshal(cfg, &typeConfig)
+		service, err := common.Services.NewFromConfig(typeConfig.Type, cfg)
 		if err != nil {
-			return fmt.Errorf("failed to parse service config: %v", err)
-		}
-		serviceType := typeConfig.Type
-		newFunc, ok := common.Services.Get(serviceType)
-		if !ok {
-			return fmt.Errorf("service %q not found", serviceType)
-		}
-
-		service, err := newFunc(cfg)
-		if err != nil {
-			return fmt.Errorf("failed to create service %q: %v", serviceType, err)
+			return fmt.Errorf("failed to create service %q: %v", typeConfig.Type, err)
 		}
 		s.services[path.Clean(key)] = service
 	}
