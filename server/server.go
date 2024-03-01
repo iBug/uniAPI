@@ -66,7 +66,8 @@ func (s *Server) Stop() error {
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	key := strings.TrimPrefix(path.Clean(r.URL.Path), "/")
+	log.Printf("Serving %s", r.URL.Path)
+	key := strings.SplitN(path.Clean(r.URL.Path), "/", 3)[1]
 	service, ok := s.services[key]
 	if !ok {
 		http.NotFound(w, r)
