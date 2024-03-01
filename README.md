@@ -95,8 +95,24 @@ services:
 
 These are defined in [`common/interfaces.go`](common/interfaces.go). Some of the classes are:
 
-- **Service**: Provides HTTP handlers for something. Additionally, the root server is also a Service (going by the name `server`).
-- **Commander**: Provides a way to execute commands and read the output. For example, many game servers uses the [RCON protocol](https://developer.valvesoftware.com/wiki/Source_RCON_Protocol) as a command interface.
+- **Service**: Provides an HTTP handler for something.
+
+  Additionally, the root server is also a Service (going by the name `server`).
+  You can achieve sub-path routing by defining a `server` Service.
+  For example:
+
+  ```yaml
+  services:
+    some_path:
+      type: server
+      services:
+        sub_path:
+          type: some_service
+  ```
+
+  Then `some_service` will be available at `/some_path/sub_path`.
+
+- **Commander**: Provides a way to execute commands and retrieve the output. For example, many game servers uses the [RCON protocol](https://developer.valvesoftware.com/wiki/Source_RCON_Protocol) as a command interface.
 - **Streamer**: Provides a way to interact with a stream of data. For example, sending input to and reading output from a game server console. The [`docker` plugin](plugins/docker/) provides a few Streamers to interact with Docker containers.
 
 A plugin may require another plugin to work. For example, the `minecraft` plugin requires a Commander, but you can use either `rcon` or `docker.attachexec` to interact with a Minecraft server, depending on your setup. The `type` key specifies which plugin to use, and the rest of the config is passed to the plugin.

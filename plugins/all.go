@@ -4,6 +4,7 @@ import (
 	_ "github.com/iBug/api-ustc/plugins/csgo"
 	_ "github.com/iBug/api-ustc/plugins/docker"
 	_ "github.com/iBug/api-ustc/plugins/factorio"
+	_ "github.com/iBug/api-ustc/plugins/github"
 	_ "github.com/iBug/api-ustc/plugins/ibugauth"
 	_ "github.com/iBug/api-ustc/plugins/minecraft"
 	_ "github.com/iBug/api-ustc/plugins/palworld"
