@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/iBug/api-ustc/common"
+	"github.com/iBug/uniAPI/common"
 )
 
 func validateToken(header string, tokens []string) bool {

@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/iBug/api-ustc/common"
+	"github.com/iBug/uniAPI/common"
 )
 
 type Config struct {
@@ -118,7 +118,7 @@ func (c *Client) QueryHTTP(method string) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("User-Agent", "iBug.api-ustc/dev")
+	req.Header.Set("User-Agent", "iBug.uniAPI/dev")
 	req.Header.Set("X-API-Key", c.key)
 	return c.httpClient.Do(req)
 }

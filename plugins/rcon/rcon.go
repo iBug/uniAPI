@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/iBug/api-ustc/common"
-	"github.com/iBug/api-ustc/plugins/rcon/internal/rcon"
+	"github.com/iBug/uniAPI/common"
+	"github.com/iBug/uniAPI/plugins/rcon/internal/rcon"
 )
 
 type Config struct {

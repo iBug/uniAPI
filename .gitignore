@@ -1,5 +1,5 @@
 # Binaries for programs and plugins
-api-ustc
+uniAPI
 *.exe
 *.exe~
 *.dll

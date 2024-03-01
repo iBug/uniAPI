@@ -9,7 +9,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/iBug/api-ustc/common"
+	"github.com/iBug/uniAPI/common"
 )
 
 type ReaderInfo struct {

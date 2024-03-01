@@ -8,7 +8,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/iBug/api-ustc/common"
+	"github.com/iBug/uniAPI/common"
 )
 
 type ServiceSet map[string]json.RawMessage

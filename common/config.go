@@ -27,5 +27,5 @@ func DefaultConfigPath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(homeDir, ".config/api-ustc.yml"), nil
+	return filepath.Join(homeDir, ".config/uniAPI.yml"), nil
 }

@@ -1,5 +1,5 @@
 SRCS := $(shell find . -name "*.go" -type f) go.mod go.sum
-BIN := api-ustc
+BIN := uniAPI
 INSTALL := $(HOME)/.local/bin/$(BIN)
 SERVICE := $(BIN).service
 

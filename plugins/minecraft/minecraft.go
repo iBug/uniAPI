@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/iBug/api-ustc/common"
+	"github.com/iBug/uniAPI/common"
 )
 
 type Status struct {

@@ -1,4 +1,4 @@
-module github.com/iBug/api-ustc
+module github.com/iBug/uniAPI
 
 go 1.22
 

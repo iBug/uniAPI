@@ -9,9 +9,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/iBug/api-ustc/common"
-	_ "github.com/iBug/api-ustc/plugins"
-	"github.com/iBug/api-ustc/server"
+	"github.com/iBug/uniAPI/common"
+	_ "github.com/iBug/uniAPI/plugins"
+	"github.com/iBug/uniAPI/server"
 	"sigs.k8s.io/yaml"
 )
 
@@ -63,7 +63,7 @@ func main() {
 		configFile string
 	)
 	flag.StringVar(&listenAddr, "l", ":8000", "listen address")
-	flag.StringVar(&configFile, "c", "", "config file (default ~/.config/api-ustc.yml)")
+	flag.StringVar(&configFile, "c", "", "config file (default ~/.config/uniAPI.yml)")
 	flag.Parse()
 
 	// $JOURNAL_STREAM is set by systemd v231+

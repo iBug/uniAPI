@@ -1,4 +1,4 @@
-# api-ustc
+# uniAPI
 
 A custom server that converts many data sources into a versatile API. See the [`plugins/` directory](plugins/) for supported plugins and their configurations.
 
