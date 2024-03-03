@@ -2,7 +2,7 @@
 
 This plugin provides interactions with GitHub.
 
-Currently only one Service `github.webhook` is provided. Configuration is as follows:
+Currently only one Service `github.webhook.pull` is provided. Configuration is as follows:
 
 ```yaml
 path: /path/to/local/repository

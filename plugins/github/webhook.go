@@ -115,4 +115,5 @@ func NewGitHubWebhook(config json.RawMessage) (common.Service, error) {
 
 func init() {
 	common.Services.Register("github.webhook", NewGitHubWebhook)
+	common.Services.Register("github.webhook.pull", NewGitHubWebhook)
 }
