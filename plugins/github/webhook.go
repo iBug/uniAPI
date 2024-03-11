@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"hash"
 	"io"
 	"log"
 	"net/http"
@@ -31,7 +32,21 @@ var (
 	errWrong   = errors.New("bad signature")
 )
 
-func validateSignature(sigHeader string, key []byte, body []byte) error {
+type signatureValidator struct {
+	mac hash.Hash
+}
+
+func newSignatureValidator(secret []byte) *signatureValidator {
+	return &signatureValidator{
+		mac: hmac.New(sha1.New, secret),
+	}
+}
+
+func (v *signatureValidator) Write(p []byte) (n int, err error) {
+	return v.mac.Write(p)
+}
+
+func (v *signatureValidator) Validate(sigHeader string) error {
 	sigStr, ok := strings.CutPrefix(sigHeader, "sha1=")
 	if !ok {
 		return errMissing
@@ -40,9 +55,7 @@ func validateSignature(sigHeader string, key []byte, body []byte) error {
 	if err != nil {
 		return errInvalid
 	}
-	mac := hmac.New(sha1.New, key)
-	mac.Write(body)
-	if !hmac.Equal(sig, mac.Sum(nil)) {
+	if !hmac.Equal(sig, v.mac.Sum(nil)) {
 		return errWrong
 	}
 	return nil
@@ -60,29 +73,31 @@ func (gh *GitHubWebhook) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	body, err := io.ReadAll(req.Body)
+	// Stream the request body to avoid io.ReadAll eating all the memory
+	var jsonReader io.Reader = req.Body
+	var validator *signatureValidator
+	if gh.Secret != "" {
+		validator = newSignatureValidator([]byte(gh.Secret))
+		jsonReader = io.TeeReader(req.Body, validator)
+	}
+
+	var payload GitPullPayload
+	err := json.NewDecoder(jsonReader).Decode(&payload)
 	if err != nil {
-		log.Printf("io.ReadAll failed: %s\n", err)
+		log.Printf("json.Unmarshal failed: %s\n", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	io.Copy(io.Discard, jsonReader) // so that HMAC receives all the body
 
 	if gh.Secret != "" {
 		sigStr := req.Header.Get("X-Hub-Signature")
-		err := validateSignature(sigStr, []byte(gh.Secret), body)
+		err := validator.Validate(sigStr)
 		if err != nil {
 			log.Printf("Validate signature failed: %s\n", err)
 			http.Error(w, err.Error()+"\n", http.StatusForbidden)
 			return
 		}
-	}
-
-	var payload GitPullPayload
-	err = json.Unmarshal(body, &payload)
-	if err != nil {
-		log.Printf("json.Unmarshal failed: %s\n", err)
-		w.WriteHeader(http.StatusBadRequest)
-		return
 	}
 
 	if payload.Ref != "refs/heads/"+gh.Branch {
