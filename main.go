@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 	"time"
 
@@ -54,6 +55,7 @@ func loadConfig(path string) error {
 		return err
 	}
 	handler.Set(s)
+	runtime.GC()
 	return nil
 }
 
