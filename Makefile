@@ -1,10 +1,12 @@
+VERSION := $(shell git describe --tags --always --dirty)
+
 SRCS := $(shell find . -name "*.go" -type f) go.mod go.sum
 BIN := uniAPI
 INSTALL := $(HOME)/.local/bin/$(BIN)
 SERVICE := $(BIN).service
 
 #GOFLAGS := -compiler=gccgo -gccgoflags='-s -w'
-GOFLAGS = -ldflags='-s -w'
+GOFLAGS = -ldflags='-s -w -X main.version=$(VERSION)'
 
 SYSTEMCTL_COMMANDS := start stop restart status reload
 JOURNALCTL_COMMANDS := log logs

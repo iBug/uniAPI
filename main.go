@@ -20,7 +20,10 @@ type Config struct {
 	Services server.ServiceSet `json:"services"`
 }
 
-var handler server.ReloadableHandler
+var (
+	handler server.ReloadableHandler
+	version string
+)
 
 func logRequest(r *http.Request) {
 	remoteAddr := r.Header.Get("CF-Connecting-IP")
@@ -61,16 +64,23 @@ func loadConfig(path string) error {
 
 func main() {
 	var (
-		listenAddr string
-		configFile string
+		listenAddr   string
+		configFile   string
+		printVersion bool
 	)
 	flag.StringVar(&listenAddr, "l", ":8000", "listen address")
 	flag.StringVar(&configFile, "c", "", "config file (default ~/.config/uniAPI.yml)")
+	flag.BoolVar(&printVersion, "v", false, "print version and exit")
 	flag.Parse()
 
 	// $JOURNAL_STREAM is set by systemd v231+
 	if _, ok := os.LookupEnv("JOURNAL_STREAM"); ok {
 		log.SetFlags(log.Flags() &^ (log.Ldate | log.Ltime))
+	}
+
+	if printVersion {
+		log.Printf("uniAPI version %s", version)
+		os.Exit(0)
 	}
 
 	if err := loadConfig(configFile); err != nil {
