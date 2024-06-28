@@ -59,7 +59,6 @@ type OnlineConfig struct {
 
 type Config struct {
 	common.CommanderConfig
-	*common.StreamerConfig // for log watcher
 
 	Online OnlineConfig `json:"online"`
 }
@@ -70,14 +69,14 @@ type Client struct {
 	SilentFunc func() bool
 
 	commander common.Commander
-	streamer  common.Streamer
 
 	savedStatus  Status
 	localState   LocalState
 	localStateMu sync.Mutex
+	logChan      chan<- string
 }
 
-func NewClient(config Config) (common.Service, error) {
+func NewClient(config Config) (*Client, error) {
 	commander, err := common.Commanders.NewFromConfig(config.Commander)
 	if err != nil {
 		return nil, err
@@ -86,10 +85,6 @@ func NewClient(config Config) (common.Service, error) {
 		Api:       config.Online.Api,
 		CacheTime: 10 * time.Second,
 		commander: commander,
-	}
-
-	if len(config.Streamer) > 0 {
-		c.StartLogWatcher(config.Streamer)
 	}
 
 	if config.Online.DisableFile != "" {
@@ -192,6 +187,13 @@ func (c *Client) GetCachedStatus() (Status, error) {
 
 // ServeHTTP implements the http.Handler interface.
 func (c *Client) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Header.Get("User-Agent") == "Valve/Steam HTTP Client 1.0 (730)" {
+		c.handleLogHTTP(r)
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	status, err := c.GetStatus()
 	if err != nil {
@@ -330,45 +332,35 @@ func (c *Client) handleLogMessage(s string) {
 	}
 }
 
-func (c *Client) onlineWorker(ch <-chan string) {
-	for s := range ch {
-		c.handleLogMessage(s)
+func (c *Client) handleLogHTTP(r *http.Request) {
+	if c.logChan == nil {
+		return
+	}
+	scanner := bufio.NewScanner(r.Body)
+	for scanner.Scan() {
+		c.logChan <- processLogLine(scanner.Text())
 	}
 }
 
-func (c *Client) logWatcher(ch chan<- string) error {
-	stream, err := c.streamer.Connect()
-	if err != nil {
-		return err
+func processLogLine(line string) string {
+	text := strings.TrimSpace(line)
+	parts := strings.SplitN(text, ": ", 2)
+	if len(parts) != 2 {
+		return ""
 	}
-
-	scanner := bufio.NewScanner(stream)
-	for scanner.Scan() {
-		text := strings.TrimSpace(scanner.Text())
-		parts := strings.SplitN(text, ": ", 2)
-		if len(parts) != 2 {
-			continue
-		}
-		ch <- parts[1]
-	}
-	return scanner.Err()
+	return parts[1]
 }
 
 func (c *Client) StartLogWatcher(cfg json.RawMessage) error {
-	streamer, err := common.Streamers.NewFromConfig(cfg)
-	if err != nil {
-		return err
-	}
-	c.streamer = streamer
 	ch := make(chan string, 1)
-	go c.onlineWorker(ch)
-	go func() {
-		for {
-			err := c.logWatcher(ch)
-			log.Printf("CSGO log watcher error: %v\n", err)
-			time.Sleep(time.Second)
+	go func(ch <-chan string) {
+		for s := range ch {
+			if s != "" {
+				c.handleLogMessage(s)
+			}
 		}
-	}()
+	}(ch)
+	c.logChan = ch
 	return nil
 }
 
