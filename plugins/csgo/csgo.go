@@ -270,11 +270,15 @@ func (c *Client) handleLogMessage(s string) {
 
 	// Check offline
 	matches = ReDisconnected.FindStringSubmatch(s)
-	if len(matches) >= 5 && matches[3] != "BOT" {
+	if len(matches) >= 5 {
 		log.Printf("CSGO Online: %v disconnected\n", matches[1])
 		c.localStateMu.Lock()
 		c.localState.RemovePlayer(matches[1])
 		c.localStateMu.Unlock()
+		if matches[3] == "BOT" {
+			return
+		}
+
 		status, err := c.GetStatus()
 		if err != nil {
 			log.Print(err)
