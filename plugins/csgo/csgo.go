@@ -87,6 +87,8 @@ func NewClient(config Config) (*Client, error) {
 		commander: commander,
 	}
 
+	c.startLogWatcher()
+
 	if config.Online.DisableFile != "" {
 		c.SilentFunc = func() bool {
 			_, err := os.Stat(config.Online.DisableFile)
@@ -344,14 +346,14 @@ func (c *Client) handleLogHTTP(r *http.Request) {
 
 func processLogLine(line string) string {
 	text := strings.TrimSpace(line)
-	parts := strings.SplitN(text, ": ", 2)
-	if len(parts) != 2 {
+	parts := strings.SplitN(text, " - ", 3)
+	if len(parts) != 3 {
 		return ""
 	}
-	return parts[1]
+	return parts[2]
 }
 
-func (c *Client) StartLogWatcher(cfg json.RawMessage) error {
+func (c *Client) startLogWatcher() error {
 	ch := make(chan string, 1)
 	go func(ch <-chan string) {
 		for s := range ch {
