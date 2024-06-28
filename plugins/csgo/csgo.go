@@ -272,7 +272,9 @@ func (c *Client) handleLogMessage(s string) {
 	matches = ReDisconnected.FindStringSubmatch(s)
 	if len(matches) >= 5 && matches[3] != "BOT" {
 		log.Printf("CSGO Online: %v disconnected\n", matches[1])
+		c.localStateMu.Lock()
 		c.localState.RemovePlayer(matches[1])
+		c.localStateMu.Unlock()
 		status, err := c.GetStatus()
 		if err != nil {
 			log.Print(err)
@@ -342,6 +344,18 @@ func (c *Client) handleLogHTTP(r *http.Request) {
 	for scanner.Scan() {
 		c.logChan <- processLogLine(scanner.Text())
 	}
+
+	c.localStateMu.Lock()
+	if s := r.Header.Get("X-Game-Map"); s != "" {
+		c.localState.Map = s
+	}
+	if i, err := strconv.Atoi(r.Header.Get("X-Game-ScoreCT")); err == nil {
+		c.localState.CT.Score = i
+	}
+	if i, err := strconv.Atoi(r.Header.Get("X-Game-ScoreT")); err == nil {
+		c.localState.T.Score = i
+	}
+	c.localStateMu.Unlock()
 }
 
 func processLogLine(line string) string {
