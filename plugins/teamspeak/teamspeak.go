@@ -113,7 +113,7 @@ func NewClient(config Config) *Client {
 }
 
 func (c *Client) QueryHTTP(method string) (*http.Response, error) {
-	url := fmt.Sprintf("http://%s/%s/%s", c.endpoint, c.instance, method)
+	url := fmt.Sprintf("%s/%s/%s", c.endpoint, c.instance, method)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
