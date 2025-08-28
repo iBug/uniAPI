@@ -10,7 +10,8 @@ import (
 )
 
 type Service struct {
-	File string `json:"file"`
+	File  string `json:"file"`
+	Limit int64  `json:"limit"`
 }
 
 func (s *Service) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -27,11 +28,28 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	defer f.Close()
-	n, err := io.Copy(f, req.Body)
+
+	var n int64
+	if s.Limit > 0 {
+		n, err = io.CopyN(f, req.Body, s.Limit)
+	} else {
+		n, err = io.Copy(f, req.Body)
+	}
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	// Leftover data from io.CopyN
+	n, err = io.Copy(io.Discard, req.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	} else if n > 0 {
+		http.Error(w, fmt.Sprintf("%d", n), http.StatusRequestEntityTooLarge)
+		return
+	}
+
 	http.Error(w, fmt.Sprintf("%d", n), http.StatusOK)
 }
 
