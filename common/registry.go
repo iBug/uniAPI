@@ -42,3 +42,13 @@ var (
 	Commanders = RegistryT[Commander]{entries: make(map[string]NewFuncT[Commander])}
 	Streamers  = RegistryT[Streamer]{entries: make(map[string]NewFuncT[Streamer])}
 )
+
+// Convenience functions
+func NewService[T Service](config json.RawMessage) (Service, error) {
+	var s T
+	err := json.Unmarshal(config, &s)
+	if err != nil {
+		return nil, err
+	}
+	return s, nil
+}

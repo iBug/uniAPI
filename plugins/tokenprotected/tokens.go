@@ -1,4 +1,4 @@
-package common
+package tokenprotected
 
 import (
 	"encoding/json"

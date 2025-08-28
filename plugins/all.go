@@ -15,4 +15,5 @@ import (
 	_ "github.com/iBug/uniAPI/plugins/tokenprotected"
 	_ "github.com/iBug/uniAPI/plugins/ustc"
 	_ "github.com/iBug/uniAPI/plugins/wireguard"
+	_ "github.com/iBug/uniAPI/plugins/writefile"
 )
