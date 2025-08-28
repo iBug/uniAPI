@@ -32,6 +32,9 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	var n int64
 	if s.Limit > 0 {
 		n, err = io.CopyN(f, req.Body, s.Limit)
+		if err == io.EOF {
+			err = nil
+		}
 	} else {
 		n, err = io.Copy(f, req.Body)
 	}
